@@ -21,7 +21,7 @@ Fixion is a closed-loop AI agent that:
 ### Install
 
 ```bash
-git clone https://github.com/yourname/fixion
+git clone https://github.com/Supratik24/Fixion
 cd fixion
 
 pip install -e ".[dev]"
