@@ -1,0 +1,30 @@
+# Fixion sandbox base image
+# Lightweight Python 3.11 image with dev tools pre-installed.
+# The agent copies the target repo into /workspace at runtime.
+
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pre-install common Python dev tools so per-repo installs are faster
+RUN pip install --no-cache-dir \
+    pytest==8.2.2 \
+    pytest-json-report==1.5.0 \
+    pytest-xdist==3.5.0 \
+    ruff==0.4.9 \
+    mypy==1.10.0 \
+    coverage==7.5.3
+
+# Create a non-root user for safety
+RUN useradd -m -u 1000 sandbox
+USER sandbox
+
+WORKDIR /workspace
+
+# Default command (overridden at runtime)
+CMD ["python", "-m", "pytest", "--help"]

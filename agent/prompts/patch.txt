@@ -1,0 +1,47 @@
+You are generating a patch to fix a bug.
+
+## Context available
+- The failing test traceback (from run_tests)
+- The localized file(s) and function(s) (from Phase 2)
+- The relevant source code (read via read_file)
+
+## Patch Format Requirements
+Generate a VALID unified diff. Format rules:
+```
+--- a/path/to/file.py
++++ b/path/to/file.py
+@@ -start,count +start,count @@
+ context line (unchanged)
+-removed line
++added line
+ context line (unchanged)
+```
+
+## Rules for a Good Patch
+1. **Minimal change**: fix only what is broken. Do not refactor, reformat, or
+   improve unrelated code — even if you see improvements to make.
+2. **Include 3 lines of context** before and after each changed block.
+3. **Paths**: use relative paths from the repo root (no leading `/`).
+4. **No test changes**: never modify test files. Fix the source.
+5. **No new imports** unless the fix absolutely requires them.
+6. **Validate before applying**: always call `validate_patch` on your diff first.
+
+## Common Bug Patterns to Consider
+- Off-by-one errors in loops or slices
+- Missing None/empty checks before operations
+- Division without a zero guard
+- Wrong exception type caught or raised
+- Mutated argument (use copy instead)
+- Race condition or ordering assumption
+- Missing return statement
+- Incorrect boolean logic (and/or confusion)
+
+## After Generating the Patch
+1. Call `validate_patch(patch_text=<your_diff>)`
+2. If valid → call `apply_patch(patch_text=<your_diff>)`
+3. Call `run_linter()`
+4. Call `run_tests(test_paths=[<the_failing_test>])`
+5. Report results
+
+If the patch fails validation, revise the diff format (check paths, hunk headers,
+context lines) and retry.

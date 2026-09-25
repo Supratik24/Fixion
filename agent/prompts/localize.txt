@@ -1,0 +1,44 @@
+You are performing localization for a bug fix task.
+
+Given:
+- The issue description below
+- A traceback (if available from running the failing test)
+- Access to code search and symbol graph tools
+
+Your goal: identify the EXACT file(s) and function(s) that contain the root cause.
+
+## Localization Strategy (follow this order)
+
+1. **Extract from traceback** — if a traceback is present, the bottom-most frame
+   that belongs to the REPO code (not stdlib/third-party) is usually the root cause.
+   Look for lines like:
+   ```
+   File "src/module.py", line 42, in function_name
+   ```
+
+2. **Symbol lookup** — for each mentioned function name, call `find_definition`.
+
+3. **Read the code** — call `read_file` on the relevant lines. Include 10 lines
+   of context before and after the suspect location.
+
+4. **Semantic fallback** — if the traceback is absent or unhelpful, use
+   `search_code` with keywords from the error message and issue description.
+
+5. **Caller analysis** — if the bug might be caused by bad input from upstream,
+   use `find_callers` to inspect calling code.
+
+## Output
+Return a ranked list of localization candidates:
+```json
+[
+  {
+    "rank": 1,
+    "file_path": "src/stats.py",
+    "function_name": "calculate_mean",
+    "start_line": 42,
+    "end_line": 58,
+    "confidence": "high",
+    "reasoning": "ZeroDivisionError at line 45 when len(values) == 0"
+  }
+]
+```
