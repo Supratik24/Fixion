@@ -89,14 +89,14 @@ def fix(
     with console.status("[bold green]Cloning repository…"):
         clone_result = clone_repo(repo)
 
-    console.print(f"✓ Cloned to [dim]{clone_result.local_path}[/] @ [cyan]{clone_result.head_sha[:8]}[/]")
+    console.print(f"[OK] Cloned to [dim]{clone_result.local_path}[/] @ [cyan]{clone_result.head_sha[:8]}[/]")
 
     with console.status("[bold green]Parsing and indexing…"):
         chunks = parse_repo(clone_result.local_path)
         sg = build_symbol_graph(chunks)
         embed_idx = EmbedIndex.build(chunks, repo, clone_result.head_sha)
 
-    console.print(f"✓ Indexed [cyan]{len(chunks)}[/] code chunks")
+    console.print(f"[OK] Indexed [cyan]{len(chunks)}[/] code chunks")
 
     with console.status("[bold green]Building sandbox…"):
         sandbox = DockerSandbox()
@@ -190,19 +190,18 @@ def build_sandbox() -> None:
 @click.option("--instance-id", default=None, help="Evaluate a single specific instance.")
 @click.option("--output-dir", default="eval_results", show_default=True)
 @click.option("--summary-file", default="eval_summary.json", show_default=True)
-def eval(n: int, instance_id: str | None, output_dir: str, summary_file: str) -> None:
+@click.pass_context
+def eval(ctx: click.Context, n: int, instance_id: str | None, output_dir: str, summary_file: str) -> None:
     """Run Fixion against SWE-bench Lite and report resolve-rate."""
     from eval.swebench_harness import main as eval_main
 
-    eval_main(
-        standalone_mode=False,
-        obj={},
-        args=[
-            *(["--n", str(n)] if n else []),
-            *(["--instance-id", instance_id] if instance_id else []),
-            "--output-dir", output_dir,
-            "--summary-file", summary_file,
-        ],
+    ctx.invoke(
+        eval_main,
+        n=n,
+        instance_id=instance_id,
+        split="test",
+        output_dir=output_dir,
+        summary_file=summary_file,
     )
 
 

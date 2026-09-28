@@ -47,6 +47,8 @@ logger = logging.getLogger(__name__)
 # ── Data structures ────────────────────────────────────────────────────────────
 
 
+from typing import Any, Callable
+
 @dataclass
 class AgentContext:
     """Everything the agent needs for a single fix run."""
@@ -59,6 +61,8 @@ class AgentContext:
     symbol_graph: SymbolGraph
     sandbox: DockerSandbox
     max_retries: int = field(default_factory=lambda: settings.max_retries)
+    log_callback: Callable[[str], None] | None = None
+
 
 
 @dataclass
@@ -191,16 +195,35 @@ def run_agent(ctx: AgentContext) -> AgentResult:
     """
     Run the full Fixion agent loop for one issue.
 
-    Flow:
-      conversation → tool calls → tool results → next turn → …
-      until the model stops calling tools (final answer) or max_retries exceeded.
+    Supports multiple backends: gemini | groq | openrouter
+    Set FIXION_BACKEND in .env to switch.
     """
-    client = genai.Client(api_key=settings.gemini_api_key)
-    tools = _build_tool_list()
+    import time
+    from agent.llm_client import (
+        BACKEND_DEFAULTS, GROQ_BASE_URL, OPENROUTER_BASE_URL,
+        ToolCall, LLMResponse,
+        _call_gemini, _call_openai_compat,
+        gemini_tools_to_openai,
+        openai_history_append_assistant, openai_history_append_tool_results,
+    )
+
+    backend = settings.backend.lower()
+    logger.info("Using backend: %s", backend)
+
+    # Tool declarations (raw dicts for all backends)
+    raw_declarations = [
+        sc_mod.TOOL_DECLARATION,
+        rf_mod.TOOL_DECLARATION,
+        *ref_mod.TOOL_DECLARATIONS,
+        *git_mod.TOOL_DECLARATIONS,
+        *ap_mod.TOOL_DECLARATIONS,
+        lint_mod.TOOL_DECLARATION,
+        rt_mod.TOOL_DECLARATION,
+    ]
+
     system_prompt = _load_prompt("system")
 
-    # Build the initial user message
-    test_list = "\n".join(f"  - {t}" for t in ctx.failing_tests) if ctx.failing_tests else "  (unknown — run the full suite to discover)"
+    test_list = "\n".join(f"  - {t}" for t in ctx.failing_tests) if ctx.failing_tests else "  (unknown — run the full suite)"
     user_message = f"""## Issue
 {ctx.issue_text}
 
@@ -210,14 +233,9 @@ def run_agent(ctx: AgentContext) -> AgentResult:
 ## Failing Tests (if known)
 {test_list}
 
-Please reproduce the bug, localize the root cause, generate a patch, and verify it passes tests.
-Follow your mandatory 4-phase workflow.
+Reproduce the bug, localize the root cause, generate a patch, and verify it passes tests.
+Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
 """
-
-    # Conversation history (list of Content objects)
-    history: list[genai_types.Content] = [
-        genai_types.Content(role="user", parts=[genai_types.Part(text=user_message)])
-    ]
 
     iterations = 0
     last_patch = ""
@@ -226,82 +244,100 @@ Follow your mandatory 4-phase workflow.
 
     logger.info("Starting agent loop for issue (max_retries=%d)", ctx.max_retries)
 
-    while iterations <= ctx.max_retries:
-        iterations += 1
-        logger.info("Agent iteration %d/%d", iterations, ctx.max_retries + 1)
+    # ── Gemini backend ─────────────────────────────────────────────────────────
+    if backend == "gemini":
+        from google import genai
+        from google.genai import types as genai_types
 
-        # Call the model
-        response = client.models.generate_content(
-            model=settings.model,
-            contents=history,
-            config=genai_types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                tools=tools,
-                tool_config=genai_types.ToolConfig(
-                    function_calling_config=genai_types.FunctionCallingConfig(
-                        mode="AUTO",
-                    )
-                ),
-                temperature=0.2,
-                max_output_tokens=8192,
-            ),
-        )
-
-        candidate = response.candidates[0]
-        model_content = candidate.content
-
-        # Append model response to history
-        history.append(model_content)
-
-        # Check if the model made any tool calls
-        tool_calls = [
-            part.function_call
-            for part in model_content.parts
-            if part.function_call is not None
+        gemini_tools = _build_tool_list()
+        history: list[genai_types.Content] = [
+            genai_types.Content(role="user", parts=[genai_types.Part(text=user_message)])
         ]
 
-        if not tool_calls:
-            # Model produced a final text response — extract it
-            final_answer = " ".join(
-                part.text for part in model_content.parts if part.text
-            )
-            logger.info("Agent produced final answer after %d iterations.", iterations)
-            break
+        while iterations <= ctx.max_retries:
+            iterations += 1
+            logger.info("Agent iteration %d/%d", iterations, ctx.max_retries + 1)
 
-        # Execute all tool calls and collect results
-        tool_results: list[genai_types.Part] = []
-        for fc in tool_calls:
-            tool_name = fc.name
-            tool_args = dict(fc.args) if fc.args else {}
+            llm_response, raw_content = _call_gemini(history, system_prompt, gemini_tools)
+            history.append(raw_content)
 
-            result = _dispatch_tool(tool_name, tool_args, ctx)
+            if not llm_response.has_tool_calls:
+                final_answer = llm_response.text
+                logger.info("Agent produced final answer after %d iterations.", iterations)
+                break
 
-            # Track key state changes
-            if tool_name == "apply_patch" and result.get("applied"):
-                last_patch = tool_args.get("patch_text", "")
-            if tool_name == "run_tests" and not result.get("passed", True):
-                last_traceback = result.get("traceback", "")
+            tool_results: list[genai_types.Part] = []
+            for tc in llm_response.tool_calls:
+                result = _dispatch_tool(tc.name, tc.args, ctx)
+                if tc.name == "apply_patch" and result.get("applied"):
+                    last_patch = tc.args.get("patch_text", "")
+                if tc.name == "run_tests" and not result.get("passed", True):
+                    last_traceback = result.get("traceback", "")
 
-            result_str = json.dumps(result, ensure_ascii=False, indent=2)
-            tool_results.append(
-                genai_types.Part(
-                    function_response=genai_types.FunctionResponse(
-                        name=tool_name,
-                        response={"result": result_str},
+                tool_results.append(
+                    genai_types.Part(
+                        function_response=genai_types.FunctionResponse(
+                            name=tc.name,
+                            response={"result": json.dumps(result, ensure_ascii=False, indent=2)},
+                        )
                     )
                 )
+
+            history.append(genai_types.Content(role="user", parts=tool_results))
+
+        else:
+            logger.warning("Max retries (%d) exceeded. Returning best attempt.", ctx.max_retries)
+            final_answer = "Max retries exceeded."
+
+    # ── Groq / OpenRouter backend ──────────────────────────────────────────────
+    else:
+        if backend == "groq":
+            api_key = settings.groq_api_key
+            base_url = GROQ_BASE_URL
+            model = settings.model if settings.model not in BACKEND_DEFAULTS.values() else BACKEND_DEFAULTS["groq"]
+        else:  # openrouter
+            api_key = settings.openrouter_api_key
+            base_url = OPENROUTER_BASE_URL
+            model = settings.model if settings.model not in BACKEND_DEFAULTS.values() else BACKEND_DEFAULTS["openrouter"]
+
+        if not api_key:
+            raise RuntimeError(
+                f"No API key for backend '{backend}'. "
+                f"Set GROQ_API_KEY or OPENROUTER_API_KEY in your .env file."
             )
 
-        # Append tool results to history as a user turn
-        history.append(
-            genai_types.Content(role="user", parts=tool_results)
-        )
+        openai_tools = gemini_tools_to_openai(raw_declarations)
+        oa_history: list[dict] = [{"role": "user", "content": user_message}]
 
-    else:
-        logger.warning("Max retries (%d) exceeded. Returning best attempt.", ctx.max_retries)
-        final_answer = "Max retries exceeded. See last traceback for remaining failures."
+        while iterations <= ctx.max_retries:
+            iterations += 1
+            logger.info("Agent iteration %d/%d [%s/%s]", iterations, ctx.max_retries + 1, backend, model)
 
-    # ── Parse the final answer ─────────────────────────────────────────────────
+            llm_response = _call_openai_compat(
+                oa_history, system_prompt, openai_tools, base_url, api_key, model
+            )
+            openai_history_append_assistant(oa_history, llm_response)
+
+            if not llm_response.has_tool_calls:
+                final_answer = llm_response.text
+                logger.info("Agent produced final answer after %d iterations.", iterations)
+                break
+
+            results = []
+            for tc in llm_response.tool_calls:
+                result = _dispatch_tool(tc.name, tc.args, ctx)
+                if tc.name == "apply_patch" and result.get("applied"):
+                    last_patch = tc.args.get("patch_text", "")
+                if tc.name == "run_tests" and not result.get("passed", True):
+                    last_traceback = result.get("traceback", "")
+                results.append(result)
+
+            openai_history_append_tool_results(oa_history, llm_response.tool_calls, results)
+
+        else:
+            logger.warning("Max retries (%d) exceeded. Returning best attempt.", ctx.max_retries)
+            final_answer = "Max retries exceeded."
+
     return _parse_final_answer(
         final_answer,
         last_patch=last_patch,
@@ -309,6 +345,7 @@ Follow your mandatory 4-phase workflow.
         iterations=iterations,
         ctx=ctx,
     )
+
 
 
 def _parse_final_answer(

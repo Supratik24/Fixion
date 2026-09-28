@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     model: str = "gemini-2.5-pro"
     embed_model: str = "text-embedding-004"
 
+    # ── Backend selection ─────────────────────────────────────────────────────
+    # Options: "gemini" | "groq" | "openrouter"
+    backend: str = "gemini"
+    groq_api_key: str = Field(alias="GROQ_API_KEY", default="")
+    openrouter_api_key: str = Field(alias="OPENROUTER_API_KEY", default="")
+
     # ── GitHub ────────────────────────────────────────────────────────────────
     github_token: str = Field(alias="GITHUB_TOKEN", default="")
 

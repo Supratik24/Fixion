@@ -37,11 +37,11 @@ _SCHEMA = pa.schema(
         pa.field("parent_class", pa.string()),
         pa.field("docstring", pa.string()),
         pa.field("source", pa.string()),
-        pa.field("vector", pa.list_(pa.float32())),
+        pa.field("vector", pa.list_(pa.float32(), 3072)),
     ]
 )
 
-_EMBED_BATCH_SIZE = 20  # Gemini embedding API batch limit
+_EMBED_BATCH_SIZE = 100  # Max limit for Gemini batchEmbedContents
 
 
 def _make_client() -> genai.Client:
@@ -122,13 +122,28 @@ class EmbedIndex:
         rows: list[dict[str, Any]] = []
         texts = [_chunk_to_embed_text(c) for c in chunks]
 
+        from google.genai.errors import ClientError
+        import time
         # Embed in batches
         vectors: list[list[float]] = []
         for i in range(0, len(texts), _EMBED_BATCH_SIZE):
             batch = texts[i : i + _EMBED_BATCH_SIZE]
             logger.debug("Embedding batch %d/%d…", i // _EMBED_BATCH_SIZE + 1,
                          (len(texts) + _EMBED_BATCH_SIZE - 1) // _EMBED_BATCH_SIZE)
-            vectors.extend(_embed_batch(client, batch))
+            
+            while True:
+                try:
+                    vectors.extend(_embed_batch(client, batch))
+                    break
+                except ClientError as e:
+                    if "429" in str(e):
+                        logger.warning("Hit 429 Rate Limit. Sleeping for 30s...")
+                        time.sleep(30)
+                    else:
+                        raise
+            
+            if i + _EMBED_BATCH_SIZE < len(texts):
+                time.sleep(5)
 
         for chunk, vec in zip(chunks, vectors):
             chunk_id = hashlib.sha1(
@@ -166,7 +181,7 @@ class EmbedIndex:
         query_vec = _embed_batch(client, [query])[0]
 
         results = (
-            self._table.search(query_vec)
+            self._table.search(query_vec, vector_column_name="vector")
             .limit(top_k)
             .to_list()
         )

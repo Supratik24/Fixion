@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fixion — Autonomous SWE Agent</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Highlight.js for code blocks -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col font-sans">
+    
+    <header class="border-b border-gray-800 bg-gray-950 p-4 flex items-center gap-4 shadow-md">
+        <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Fixion</h1>
+        <span class="text-sm text-gray-500 border border-gray-700 px-2 py-0.5 rounded-full">v0.1.0 Web UI</span>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Input Panel -->
+        <div class="w-1/3 bg-gray-900 border-r border-gray-800 p-6 flex flex-col gap-6 overflow-y-auto">
+            <h2 class="text-lg font-semibold text-gray-300">Submit Issue</h2>
+            
+            <form id="fixForm" class="flex flex-col gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">GitHub Repo URL</label>
+                    <input type="text" id="repo_url" class="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" value="c:\Users\supra\Desktop\Fixion\tests\fixtures\buggy_math" required>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Issue Description</label>
+                    <textarea id="issue_text" rows="4" class="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono" required>divide() silently returns 0 when b=0. It should raise ZeroDivisionError.</textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-400 mb-1">Test Path (Optional)</label>
+                    <input type="text" id="test_path" class="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono" value="tests/test_math_utils.py::test_divide_by_zero">
+                </div>
+                
+                <button type="submit" id="submitBtn" class="mt-2 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                    Start Agent
+                </button>
+            </form>
+
+            <div id="resultPanel" class="hidden mt-6 p-4 bg-gray-950 border border-gray-800 rounded flex flex-col gap-3">
+                <h3 class="font-semibold text-gray-300">Result</h3>
+                <div id="resultStatus" class="text-sm font-bold"></div>
+                <div class="text-sm text-gray-400"><strong>Root Cause:</strong> <span id="resultCause"></span></div>
+                <div class="text-sm text-gray-400"><strong>Fix:</strong> <span id="resultFix"></span></div>
+                <h4 class="text-xs font-semibold text-gray-500 uppercase mt-2">Patch Diff</h4>
+                <pre><code id="resultPatch" class="language-diff text-xs rounded !bg-gray-900 border border-gray-800"></code></pre>
+            </div>
+        </div>
+
+        <!-- Terminal View -->
+        <div class="flex-1 bg-black p-4 overflow-y-auto font-mono text-sm shadow-inner" id="terminalContainer">
+            <div id="terminal" class="flex flex-col gap-1 whitespace-pre-wrap text-gray-300">
+                <span class="text-gray-500">Fixion OS v0.1.0</span>
+                <span class="text-gray-500">Waiting for instructions...</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const form = document.getElementById('fixForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const terminal = document.getElementById('terminal');
+        const terminalContainer = document.getElementById('terminalContainer');
+        const resultPanel = document.getElementById('resultPanel');
+
+        function appendLog(text, type = 'info') {
+            const el = document.createElement('div');
+            
+            // Format log colors based on content
+            if (text.includes('[WARNING]')) el.classList.add('text-yellow-400');
+            else if (text.includes('[ERROR]') || text.includes('❌')) el.classList.add('text-red-400');
+            else if (text.includes('[OK]') || text.includes('✅')) el.classList.add('text-green-400');
+            else if (text.includes('🚀') || text.includes('🤖')) el.classList.add('text-blue-400', 'font-bold', 'mt-4');
+            else if (text.startsWith('data:')) el.classList.add('text-gray-500'); // SSE chunk
+            
+            // Un-escape newlines for display
+            el.textContent = text.replace(/\\n/g, '\n');
+            terminal.appendChild(el);
+            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Agent Running...';
+            terminal.innerHTML = '';
+            resultPanel.classList.add('hidden');
+            
+            appendLog('Connecting to Fixion Backend...', 'info');
+
+            const payload = {
+                repo_url: document.getElementById('repo_url').value,
+                issue_text: document.getElementById('issue_text').value,
+                test_path: document.getElementById('test_path').value,
+            };
+
+            try {
+                // 1. Start Job
+                const res = await fetch('/api/fix', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                if (data.error) {
+                    appendLog('❌ Error: ' + data.error, 'error');
+                    submitBtn.disabled = false;
+                    return;
+                }
+
+                const jobId = data.job_id;
+                appendLog(`Job ID: ${jobId}`, 'info');
+
+                // 2. Stream Logs via SSE
+                const eventSource = new EventSource(`/api/logs/${jobId}`);
+                
+                eventSource.onmessage = (event) => {
+                    const rawData = event.data;
+                    if (rawData === '[DONE]') {
+                        eventSource.close();
+                        fetchResult(jobId);
+                    } else if (rawData.trim() !== '') {
+                        appendLog(rawData);
+                    }
+                };
+
+                eventSource.onerror = (error) => {
+                    console.error("SSE Error:", error);
+                    eventSource.close();
+                    appendLog('❌ Connection lost to agent log stream.', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Start Agent';
+                };
+
+            } catch (err) {
+                appendLog('❌ Failed to connect: ' + err.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Start Agent';
+            }
+        });
+
+        async function fetchResult(jobId) {
+            appendLog('Fetching final result...', 'info');
+            try {
+                const res = await fetch(`/api/result/${jobId}`);
+                const data = await res.json();
+                
+                resultPanel.classList.remove('hidden');
+                
+                if (data.result && data.result.success) {
+                    document.getElementById('resultStatus').textContent = '✅ SUCCESS (Tests Passed)';
+                    document.getElementById('resultStatus').classList.add('text-green-400');
+                } else {
+                    document.getElementById('resultStatus').textContent = '❌ UNRESOLVED';
+                    document.getElementById('resultStatus').classList.add('text-red-400');
+                }
+
+                if (data.result) {
+                    document.getElementById('resultCause').textContent = data.result.root_cause || 'None';
+                    document.getElementById('resultFix').textContent = data.result.fix_explanation || 'None';
+                    document.getElementById('resultPatch').textContent = data.result.patch || 'No patch generated.';
+                    hljs.highlightElement(document.getElementById('resultPatch'));
+                }
+
+            } catch (err) {
+                appendLog('❌ Failed to load result: ' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Start Agent';
+            }
+        }
+    </script>
+</body>
+</html>
