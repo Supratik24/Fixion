@@ -5,95 +5,254 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fixion — Autonomous SWE Agent</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Highlight.js for code blocks -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <style>
+        /* Custom Scrollbar for a modern look */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2); 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15); 
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3); 
+        }
+
+        /* Ambient Glow Animation */
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.7; }
+        }
+        .ambient-glow {
+            animation: pulse-glow 6s ease-in-out infinite;
+        }
+        
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.4);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .glass-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            transition: all 0.3s ease;
+        }
+        .glass-input:focus {
+            border-color: rgba(99, 102, 241, 0.6);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+            outline: none;
+        }
+    </style>
 </head>
-<body class="bg-gray-900 text-gray-100 h-screen flex flex-col font-sans">
+<!-- Deep space gradient background -->
+<body class="text-gray-200 h-screen flex flex-col font-sans overflow-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-gray-950 to-black relative">
     
-    <header class="border-b border-gray-800 bg-gray-950 p-4 flex items-center gap-4 shadow-md">
-        <h1 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Fixion</h1>
-        <span class="text-sm text-gray-500 border border-gray-700 px-2 py-0.5 rounded-full">v0.1.0 Web UI</span>
+    <!-- Decorative background glow orbs -->
+    <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-600/20 rounded-full blur-[100px] ambient-glow pointer-events-none"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[30rem] h-[30rem] bg-blue-600/20 rounded-full blur-[120px] ambient-glow pointer-events-none" style="animation-delay: 2s;"></div>
+
+    <!-- Header -->
+    <header class="glass-panel z-10 px-6 py-4 flex items-center justify-between shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-[0_0_15px_rgba(168,85,247,0.5)]">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent drop-shadow-sm">Fixion</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2">
+                <span class="relative flex h-3 w-3">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                <span class="text-xs font-medium tracking-widest uppercase text-green-400">Agent Online</span>
+            </div>
+            <span class="text-xs font-semibold text-gray-400 glass-panel px-3 py-1 rounded-full">v0.1.0</span>
+        </div>
     </header>
 
-    <div class="flex flex-1 overflow-hidden">
+    <div class="flex flex-1 overflow-hidden z-10 p-4 gap-4">
         
-        <!-- Input Panel -->
-        <div class="w-1/3 bg-gray-900 border-r border-gray-800 p-6 flex flex-col gap-6 overflow-y-auto">
-            <h2 class="text-lg font-semibold text-gray-300">Submit Issue</h2>
+        <!-- Input Panel (Left) -->
+        <div class="w-[400px] flex flex-col gap-4">
+            <div class="glass-panel rounded-2xl p-6 flex flex-col gap-6 h-full overflow-y-auto">
+                
+                <div>
+                    <h2 class="text-xl font-semibold text-white mb-1">Issue Setup</h2>
+                    <p class="text-xs text-gray-400">Configure the parameters for the autonomous agent.</p>
+                </div>
+                
+                <form id="fixForm" class="flex flex-col gap-5">
+                    
+                    <!-- Repo URL -->
+                    <div class="relative group">
+                        <label class="block text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-2">GitHub Repository</label>
+                        <div class="absolute inset-y-0 left-0 pt-6 pl-3 flex items-center pointer-events-none">
+                            <svg class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                        </div>
+                        <input type="text" id="repo_url" class="glass-input w-full rounded-xl pl-9 pr-3 py-3 text-sm text-white placeholder-gray-500" value="c:\Users\supra\Desktop\Fixion\tests\fixtures\buggy_math" required>
+                    </div>
+                    
+                    <!-- Issue Text -->
+                    <div>
+                        <label class="block text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-2">Issue Description</label>
+                        <textarea id="issue_text" rows="4" class="glass-input w-full rounded-xl p-3 text-sm text-gray-200 placeholder-gray-500 font-mono resize-none leading-relaxed" required>divide() silently returns 0 when b=0. It should raise ZeroDivisionError.</textarea>
+                    </div>
+                    
+                    <!-- Test Path -->
+                    <div>
+                        <label class="block text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-2 flex justify-between">
+                            <span>Target Test</span>
+                            <span class="text-gray-500 lowercase normal-case text-[10px]">(Optional)</span>
+                        </label>
+                        <input type="text" id="test_path" class="glass-input w-full rounded-xl p-3 text-sm text-gray-300 placeholder-gray-600 font-mono" value="tests/test_math_utils.py::test_divide_by_zero">
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <button type="submit" id="submitBtn" class="mt-4 relative group overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 p-[1px] transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100">
+                        <span class="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
+                        <div class="relative bg-gray-900/40 backdrop-blur-sm px-6 py-3 rounded-xl flex items-center justify-center gap-2 h-full w-full">
+                            <span class="font-bold text-white tracking-wide" id="btnText">Deploy Fixion Agent</span>
+                            <svg id="btnIcon" class="w-4 h-4 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                        </div>
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Right Side (Terminal & Results) -->
+        <div class="flex-1 flex flex-col gap-4 min-w-0">
             
-            <form id="fixForm" class="flex flex-col gap-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-1">GitHub Repo URL</label>
-                    <input type="text" id="repo_url" class="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" value="c:\Users\supra\Desktop\Fixion\tests\fixtures\buggy_math" required>
+            <!-- Live Terminal -->
+            <div class="flex-1 glass-panel rounded-2xl flex flex-col overflow-hidden border-t border-l border-white/10 relative">
+                <!-- Mac OS style window header -->
+                <div class="bg-black/40 px-4 py-2 flex items-center gap-2 border-b border-white/5">
+                    <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                    <div class="w-3 h-3 rounded-full bg-yellow-500/80"></div>
+                    <div class="w-3 h-3 rounded-full bg-green-500/80"></div>
+                    <span class="ml-2 text-xs font-mono text-gray-500">agent-console ~ bash</span>
                 </div>
                 
-                <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-1">Issue Description</label>
-                    <textarea id="issue_text" rows="4" class="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono" required>divide() silently returns 0 when b=0. It should raise ZeroDivisionError.</textarea>
+                <div id="terminalContainer" class="flex-1 p-5 overflow-y-auto font-mono text-[13px] leading-relaxed shadow-inner bg-black/20">
+                    <div id="terminal" class="flex flex-col gap-1.5 whitespace-pre-wrap text-gray-300">
+                        <span class="text-indigo-400">Initialize sequence starting...</span>
+                        <span class="text-gray-500">Fixion OS v0.1.0 ready. Awaiting task directives.</span>
+                    </div>
                 </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-400 mb-1">Test Path (Optional)</label>
-                    <input type="text" id="test_path" class="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono" value="tests/test_math_utils.py::test_divide_by_zero">
-                </div>
-                
-                <button type="submit" id="submitBtn" class="mt-2 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    Start Agent
-                </button>
-            </form>
-
-            <div id="resultPanel" class="hidden mt-6 p-4 bg-gray-950 border border-gray-800 rounded flex flex-col gap-3">
-                <h3 class="font-semibold text-gray-300">Result</h3>
-                <div id="resultStatus" class="text-sm font-bold"></div>
-                <div class="text-sm text-gray-400"><strong>Root Cause:</strong> <span id="resultCause"></span></div>
-                <div class="text-sm text-gray-400"><strong>Fix:</strong> <span id="resultFix"></span></div>
-                <h4 class="text-xs font-semibold text-gray-500 uppercase mt-2">Patch Diff</h4>
-                <pre><code id="resultPatch" class="language-diff text-xs rounded !bg-gray-900 border border-gray-800"></code></pre>
             </div>
-        </div>
 
-        <!-- Terminal View -->
-        <div class="flex-1 bg-black p-4 overflow-y-auto font-mono text-sm shadow-inner" id="terminalContainer">
-            <div id="terminal" class="flex flex-col gap-1 whitespace-pre-wrap text-gray-300">
-                <span class="text-gray-500">Fixion OS v0.1.0</span>
-                <span class="text-gray-500">Waiting for instructions...</span>
+            <!-- Results Panel (Hidden initially) -->
+            <div id="resultPanel" class="hidden glass-panel rounded-2xl p-6 flex flex-col gap-4 border border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)] transition-all duration-500 opacity-0 transform translate-y-4">
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        Resolution Report
+                    </h3>
+                    <div id="resultStatus" class="text-sm font-bold tracking-wider rounded-full px-3 py-1 bg-black/50 border"></div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="bg-black/30 rounded-xl p-4 border border-white/5">
+                        <h4 class="text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-2">Root Cause Identified</h4>
+                        <p id="resultCause" class="text-sm text-gray-300"></p>
+                    </div>
+                    <div class="bg-black/30 rounded-xl p-4 border border-white/5">
+                        <h4 class="text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-2">Proposed Fix</h4>
+                        <p id="resultFix" class="text-sm text-gray-300"></p>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="text-xs font-semibold text-indigo-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                        Generated Patch Diff
+                    </h4>
+                    <div class="relative group">
+                        <pre class="!bg-[#1e1e2e] !m-0 !p-4 rounded-xl border border-white/10 shadow-lg overflow-x-auto"><code id="resultPatch" class="language-diff text-[13px] leading-snug"></code></pre>
+                    </div>
+                </div>
             </div>
-        </div>
 
+        </div>
     </div>
 
     <script>
         const form = document.getElementById('fixForm');
         const submitBtn = document.getElementById('submitBtn');
+        const btnText = document.getElementById('btnText');
+        const btnIcon = document.getElementById('btnIcon');
         const terminal = document.getElementById('terminal');
         const terminalContainer = document.getElementById('terminalContainer');
         const resultPanel = document.getElementById('resultPanel');
 
+        // Typing effect for initial terminal load
+        function typeLog(text, className) {
+            const el = document.createElement('div');
+            el.className = className;
+            terminal.appendChild(el);
+            
+            let i = 0;
+            const speed = 15;
+            function typeWriter() {
+                if (i < text.length) {
+                    el.innerHTML += text.charAt(i) === '\n' ? '<br>' : text.charAt(i);
+                    i++;
+                    terminalContainer.scrollTop = terminalContainer.scrollHeight;
+                    setTimeout(typeWriter, speed);
+                }
+            }
+            typeWriter();
+        }
+
         function appendLog(text, type = 'info') {
             const el = document.createElement('div');
+            el.className = "opacity-0 animate-[fadeIn_0.3s_ease-out_forwards]";
             
-            // Format log colors based on content
-            if (text.includes('[WARNING]')) el.classList.add('text-yellow-400');
-            else if (text.includes('[ERROR]') || text.includes('❌')) el.classList.add('text-red-400');
-            else if (text.includes('[OK]') || text.includes('✅')) el.classList.add('text-green-400');
-            else if (text.includes('🚀') || text.includes('🤖')) el.classList.add('text-blue-400', 'font-bold', 'mt-4');
-            else if (text.startsWith('data:')) el.classList.add('text-gray-500'); // SSE chunk
+            // Format log colors based on content with modern neon vibes
+            if (text.includes('[WARNING]')) el.className += ' text-amber-400 font-medium bg-amber-900/10 border-l-2 border-amber-500 pl-2 py-0.5';
+            else if (text.includes('[ERROR]') || text.includes('❌')) el.className += ' text-rose-400 font-medium bg-rose-900/10 border-l-2 border-rose-500 pl-2 py-0.5';
+            else if (text.includes('[OK]') || text.includes('✅')) el.className += ' text-emerald-400 font-medium';
+            else if (text.includes('🚀') || text.includes('🤖') || text.includes('🐳')) el.className += ' text-indigo-300 font-bold mt-4 mb-1 border-b border-indigo-500/30 pb-1 inline-block';
+            else if (text.startsWith('data:')) el.className += ' text-gray-500'; 
+            else el.className += ' text-gray-300';
             
             // Un-escape newlines for display
-            el.textContent = text.replace(/\\n/g, '\n');
+            el.innerHTML = text.replace(/\\n/g, '<br>');
             terminal.appendChild(el);
-            terminalContainer.scrollTop = terminalContainer.scrollHeight;
+            
+            // Smooth scroll to bottom
+            terminalContainer.scrollTo({
+                top: terminalContainer.scrollHeight,
+                behavior: 'smooth'
+            });
         }
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Agent Running...';
-            terminal.innerHTML = '';
-            resultPanel.classList.add('hidden');
+            btnText.textContent = 'Agent Executing...';
+            btnIcon.classList.add('animate-spin');
+            btnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>';
             
-            appendLog('Connecting to Fixion Backend...', 'info');
+            // Fade out result panel if showing
+            resultPanel.classList.remove('opacity-100', 'translate-y-0');
+            resultPanel.classList.add('opacity-0', 'translate-y-4');
+            setTimeout(() => resultPanel.classList.add('hidden'), 500);
+            
+            terminal.innerHTML = '';
+            
+            appendLog('Establishing secure uplink to Fixion Core...', 'info');
 
             const payload = {
                 repo_url: document.getElementById('repo_url').value,
@@ -111,13 +270,13 @@
                 const data = await res.json();
                 
                 if (data.error) {
-                    appendLog('❌ Error: ' + data.error, 'error');
-                    submitBtn.disabled = false;
+                    appendLog('❌ Protocol Error: ' + data.error, 'error');
+                    resetButton();
                     return;
                 }
 
                 const jobId = data.job_id;
-                appendLog(`Job ID: ${jobId}`, 'info');
+                appendLog(`Job ID Assigned: <span class="text-purple-400">${jobId}</span>`, 'info');
 
                 // 2. Stream Logs via SSE
                 const eventSource = new EventSource(`/api/logs/${jobId}`);
@@ -135,32 +294,39 @@
                 eventSource.onerror = (error) => {
                     console.error("SSE Error:", error);
                     eventSource.close();
-                    appendLog('❌ Connection lost to agent log stream.', 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Start Agent';
+                    appendLog('❌ Uplink severed. Log stream interrupted.', 'error');
+                    resetButton();
                 };
 
             } catch (err) {
-                appendLog('❌ Failed to connect: ' + err.message, 'error');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Start Agent';
+                appendLog('❌ Failed to establish connection: ' + err.message, 'error');
+                resetButton();
             }
         });
 
         async function fetchResult(jobId) {
-            appendLog('Fetching final result...', 'info');
+            appendLog('Process terminated. Compiling resolution report...', 'info');
             try {
                 const res = await fetch(`/api/result/${jobId}`);
                 const data = await res.json();
                 
                 resultPanel.classList.remove('hidden');
+                // Trigger reflow to ensure transition works
+                void resultPanel.offsetWidth;
+                resultPanel.classList.remove('opacity-0', 'translate-y-4');
+                resultPanel.classList.add('opacity-100', 'translate-y-0');
                 
+                const statusEl = document.getElementById('resultStatus');
                 if (data.result && data.result.success) {
-                    document.getElementById('resultStatus').textContent = '✅ SUCCESS (Tests Passed)';
-                    document.getElementById('resultStatus').classList.add('text-green-400');
+                    statusEl.textContent = '✅ SUCCESS';
+                    statusEl.className = 'text-sm font-bold tracking-wider rounded-full px-4 py-1.5 bg-emerald-900/30 border border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]';
+                    resultPanel.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                    resultPanel.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.1)';
                 } else {
-                    document.getElementById('resultStatus').textContent = '❌ UNRESOLVED';
-                    document.getElementById('resultStatus').classList.add('text-red-400');
+                    statusEl.textContent = '❌ UNRESOLVED';
+                    statusEl.className = 'text-sm font-bold tracking-wider rounded-full px-4 py-1.5 bg-rose-900/30 border border-rose-500/50 text-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
+                    resultPanel.style.borderColor = 'rgba(244, 63, 94, 0.3)';
+                    resultPanel.style.boxShadow = '0 0 20px rgba(244, 63, 94, 0.1)';
                 }
 
                 if (data.result) {
@@ -171,12 +337,28 @@
                 }
 
             } catch (err) {
-                appendLog('❌ Failed to load result: ' + err.message, 'error');
+                appendLog('❌ Failed to retrieve report: ' + err.message, 'error');
             } finally {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Start Agent';
+                resetButton();
             }
         }
+        
+        function resetButton() {
+            submitBtn.disabled = false;
+            btnText.textContent = 'Deploy Fixion Agent';
+            btnIcon.classList.remove('animate-spin');
+            btnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>';
+        }
+        
+        // Add custom Tailwind animations inline to the document
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(5px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
