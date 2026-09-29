@@ -153,6 +153,17 @@ async def start_fix(req: FixRequest, background_tasks: BackgroundTasks):
     return {"job_id": job_id}
 
 
+@app.post("/api/cancel/{job_id}")
+async def cancel_job(job_id: str):
+    if job_id in jobs:
+        jobs[job_id]["status"] = "cancelled"
+        # Push a final message to the queue to break any waiting SSE clients
+        jobs[job_id]["queue"].put("⚠️ Job cancelled by user.")
+        jobs[job_id]["queue"].put("EOF")
+        return {"success": True}
+    return {"error": "Job not found"}
+
+
 @app.get("/api/logs/{job_id}")
 async def stream_logs(job_id: str, request: Request):
     import asyncio
@@ -166,8 +177,12 @@ async def stream_logs(job_id: str, request: Request):
             if await request.is_disconnected():
                 break
                 
+            if jobs.get(job_id, {}).get("status") == "cancelled":
+                yield f"data: ⚠️ Job cancelled by user.\n\n"
+                yield f"data: [DONE]\n\n"
+                break
+                
             try:
-                # Non-blocking get in async loop
                 msg = log_queue.get_nowait()
                 if msg == "EOF":
                     yield f"data: [DONE]\n\n"

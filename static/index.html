@@ -257,11 +257,18 @@
                     </div>
                 </div>
 
-                <!-- Submit -->
-                <button type="submit" id="submitBtn" class="btn-primary mt-2 w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-2">
-                    <span id="btnText">Run Fixion Agent</span>
-                    <svg id="btnIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                </button>
+                <!-- Submit / Stop -->
+                <div class="flex gap-2 mt-2">
+                    <button type="submit" id="submitBtn" class="btn-primary flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-2">
+                        <span id="btnText">Run Fixion Agent</span>
+                        <svg id="btnIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    </button>
+                    
+                    <button type="button" id="stopBtn" class="hidden bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-400 py-2.5 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+                        <span>Stop</span>
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+                    </button>
+                </div>
             </form>
         </aside>
 
@@ -381,10 +388,13 @@
 
         const form = document.getElementById('fixForm');
         const submitBtn = document.getElementById('submitBtn');
+        const stopBtn = document.getElementById('stopBtn');
         const btnText = document.getElementById('btnText');
         const btnIcon = document.getElementById('btnIcon');
         const terminal = document.getElementById('terminal');
         const terminalContainer = document.getElementById('terminalContainer');
+        
+        let currentJobId = null;
 
         function setConnStatus(online) {
             const dot = document.getElementById('connIndicator');
@@ -409,7 +419,7 @@
             
             if (text.includes('[WARNING]') || text.includes('⚠️') || text.includes('Retrying')) {
                 textEl.className = 'text-amber-400/80';
-            } else if (text.includes('[ERROR]') || text.includes('❌') || text.includes('Fatal')) {
+            } else if (text.includes('[ERROR]') || text.includes('❌') || text.includes('Fatal') || text.includes('cancelled')) {
                 textEl.className = 'text-red-400/80';
             } else if (text.includes('✅') || text.includes('[OK]')) {
                 textEl.className = 'text-emerald-400';
@@ -431,12 +441,27 @@
         function setLoading(isLoading) {
             submitBtn.disabled = isLoading;
             btnText.textContent = isLoading ? 'Agent Running...' : 'Run Fixion Agent';
+            
             if (isLoading) {
+                stopBtn.classList.remove('hidden');
                 btnIcon.outerHTML = `<svg id="btnIcon" class="w-4 h-4 spinner" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`;
             } else {
+                stopBtn.classList.add('hidden');
                 document.getElementById('btnIcon').outerHTML = `<svg id="btnIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`;
             }
         }
+
+        stopBtn.addEventListener('click', async () => {
+            if (!currentJobId) return;
+            appendLog('⚠️ Cancelling job...', 'warning');
+            stopBtn.disabled = true;
+            try {
+                await fetch(`/api/cancel/${currentJobId}`, { method: 'POST' });
+            } catch (e) {
+                console.error(e);
+            }
+            stopBtn.disabled = false;
+        });
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -474,14 +499,16 @@
                     return;
                 }
 
-                appendLog('Job ID: ' + data.job_id);
+                currentJobId = data.job_id;
+                appendLog('Job ID: ' + currentJobId);
                 setConnStatus(true);
 
-                const eventSource = new EventSource(`/api/logs/${data.job_id}`);
+                const eventSource = new EventSource(`/api/logs/${currentJobId}`);
                 eventSource.onmessage = (event) => {
                     if (event.data === '[DONE]') {
                         eventSource.close();
                         setConnStatus(false);
+                        currentJobId = null;
                         fetchResult(data.job_id);
                     } else if (event.data.trim()) {
                         appendLog(event.data);
@@ -490,12 +517,14 @@
                 eventSource.onerror = () => {
                     eventSource.close();
                     setConnStatus(false);
+                    currentJobId = null;
                     appendLog('❌ Connection interrupted.');
                     setLoading(false);
                 };
             } catch (err) {
                 appendLog('❌ ' + err.message);
                 setLoading(false);
+                currentJobId = null;
             }
         });
 
