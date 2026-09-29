@@ -289,21 +289,27 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
             logger.warning("Max retries (%d) exceeded. Returning best attempt.", ctx.max_retries)
             final_answer = "Max retries exceeded."
 
-    # ── Groq / OpenRouter backend ──────────────────────────────────────────────
+    # ── Groq / OpenRouter / Ollama backend ────────────────────────────────────
     else:
         if backend == "groq":
             api_key = settings.groq_api_key
             base_url = GROQ_BASE_URL
-            model = settings.model if settings.model not in BACKEND_DEFAULTS.values() else BACKEND_DEFAULTS["groq"]
-        else:  # openrouter
+            model = settings.model if settings.model not in BACKEND_DEFAULTS.values() else BACKEND_DEFAULTS.get("groq", "")
+        elif backend == "openrouter":
             api_key = settings.openrouter_api_key
             base_url = OPENROUTER_BASE_URL
-            model = settings.model if settings.model not in BACKEND_DEFAULTS.values() else BACKEND_DEFAULTS["openrouter"]
+            model = settings.model if settings.model not in BACKEND_DEFAULTS.values() else BACKEND_DEFAULTS.get("openrouter", "")
+        elif backend == "ollama":
+            api_key = "ollama"  # not needed
+            base_url = "http://localhost:11434/v1"
+            model = settings.model  # e.g., "qwen2.5-coder:7b"
+        else:
+            raise ValueError(f"Unknown backend: {backend}")
 
         if not api_key:
             raise RuntimeError(
                 f"No API key for backend '{backend}'. "
-                f"Set GROQ_API_KEY or OPENROUTER_API_KEY in your .env file."
+                f"Set API keys in your .env file."
             )
 
         openai_tools = gemini_tools_to_openai(raw_declarations)
