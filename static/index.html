@@ -1,483 +1,1190 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fixion — Autonomous Bug Fixer</title>
+    <title>Fixion — Autonomous AI SWE Agent</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        },
+                        cyber: {
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            purple: '#a855f7',
+                            pink: '#ec4899',
+                            slate: '#0a0d14',
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'spin-slow': 'spin 8s linear infinite',
+                        'border-beam': 'borderBeam 4s linear infinite',
+                        'radar': 'radarSweep 4s linear infinite',
+                        'shimmer': 'shimmer 2.5s infinite',
+                    },
+                    keyframes: {
+                        pulseGlow: {
+                            '0%, 100%': { opacity: '0.3', transform: 'scale(1)' },
+                            '50%': { opacity: '0.7', transform: 'scale(1.03)' },
+                        },
+                        borderBeam: {
+                            '0%': { offsetDistance: '0%' },
+                            '100%': { offsetDistance: '100%' },
+                        },
+                        radarSweep: {
+                            '0%': { transform: 'rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg)' },
+                        },
+                        shimmer: {
+                            '0%': { backgroundPosition: '-200% 0' },
+                            '100%': { backgroundPosition: '200% 0' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts: Inter & JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Highlight.js for Syntax Highlighting -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
     <style>
-        * { font-family: 'Inter', sans-serif; }
+        * { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
         .mono { font-family: 'JetBrains Mono', monospace; }
 
         body {
-            background: #020408;
-            background-image: 
-                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99,102,241,0.15), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 80%, rgba(139,92,246,0.08), transparent);
-            min-height: 100vh;
+            background-color: #030712;
+            color: #f1f5f9;
+            overflow-x: hidden;
         }
 
-        /* Noise texture overlay */
-        body::before {
-            content: '';
+        /* Interactive Canvas background */
+        #bgCanvas {
             position: fixed;
-            inset: 0;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-            pointer-events: none;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index: 0;
+            pointer-events: none;
         }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.6); }
-
-        /* Glass Card */
-        .glass {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.08);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+        /* Grid lines */
+        .cyber-grid {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
         }
 
-        .glass-hover {
+        /* Glassmorphism 2.0 */
+        .glass-card {
+            background: rgba(13, 17, 28, 0.65);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(99, 102, 241, 0.25);
+            box-shadow: 0 12px 35px -8px rgba(99, 102, 241, 0.15);
+        }
+
+        .glass-pill {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Animated Glowing Edge */
+        .glowing-border {
+            position: relative;
+        }
+        .glowing-border::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(168, 85, 247, 0.3), transparent);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+        ::-webkit-scrollbar-thumb { 
+            background: rgba(99, 102, 241, 0.25); 
+            border-radius: 9999px; 
+        }
+        ::-webkit-scrollbar-thumb:hover { 
+            background: rgba(99, 102, 241, 0.5); 
+        }
+
+        /* Inputs */
+        .cyber-input {
+            background: rgba(8, 12, 22, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #f8fafc;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .cyber-input:focus {
+            outline: none;
+            border-color: rgba(99, 102, 241, 0.6);
+            background: rgba(10, 15, 30, 0.85);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.2), inset 0 0 10px rgba(99, 102, 241, 0.05);
+        }
+
+        /* Primary Action Button */
+        .btn-launch {
+            position: relative;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6366f1 100%);
+            background-size: 200% 200%;
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.45);
             transition: all 0.3s ease;
         }
-        .glass-hover:hover {
-            background: rgba(255,255,255,0.05);
-            border-color: rgba(99,102,241,0.3);
-            box-shadow: 0 0 30px rgba(99,102,241,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+        .btn-launch:hover:not(:disabled) {
+            background-position: 100% 100%;
+            box-shadow: 0 6px 30px 0 rgba(124, 58, 237, 0.6);
+            transform: translateY(-1.5px);
+        }
+        .btn-launch:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .btn-launch:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
-        /* Input styling */
-        .input-field {
-            background: rgba(0,0,0,0.4);
-            border: 1px solid rgba(255,255,255,0.07);
-            transition: all 0.2s ease;
-            color: #e2e8f0;
-        }
-        .input-field:focus {
-            outline: none;
-            border-color: rgba(99,102,241,0.5);
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
-            background: rgba(0,0,0,0.6);
-        }
-        .input-field::placeholder { color: rgba(148,163,184,0.4); }
+        /* Diff styling additions */
+        .diff-added { background: rgba(16, 185, 129, 0.12); color: #34d399; }
+        .diff-removed { background: rgba(244, 63, 94, 0.12); color: #fb7185; }
 
-        /* Gradient Text */
-        .gradient-text {
-            background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 50%, #818cf8 100%);
+        /* Terminal line slide-in */
+        @keyframes terminalLineFade {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .terminal-row {
+            animation: terminalLineFade 0.18s cubic-bezier(0, 0, 0.2, 1) forwards;
+        }
+
+        /* Shimmering Text Gradient */
+        .shimmer-text {
+            background: linear-gradient(90deg, #f8fafc 0%, #a5b4fc 50%, #f8fafc 100%);
+            background-size: 200% auto;
+            color: transparent;
             -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
             background-clip: text;
+            animation: shimmer 4s linear infinite;
         }
 
-        .gradient-text-purple {
-            background: linear-gradient(135deg, #a78bfa, #818cf8, #60a5fa);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        /* Pulse wave around active stage */
+        @keyframes pingSlow {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(2.2); opacity: 0; }
         }
-
-        /* Button */
-        .btn-primary {
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            border: 1px solid rgba(139,92,246,0.5);
-            box-shadow: 0 1px 20px rgba(79,70,229,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
-            transition: all 0.2s ease;
+        .stage-ping {
+            animation: pingSlow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
-        .btn-primary:hover:not(:disabled) {
-            background: linear-gradient(135deg, #5b52f0, #8b45f5);
-            box-shadow: 0 1px 30px rgba(79,70,229,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
-            transform: translateY(-1px);
-        }
-        .btn-primary:active:not(:disabled) { transform: translateY(0px); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        /* Terminal */
-        .terminal-bg {
-            background: rgba(0,0,0,0.6);
-            border: 1px solid rgba(255,255,255,0.06);
-        }
-
-        /* Log line animations */
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-8px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        .log-line { animation: slideIn 0.2s ease forwards; }
-
-        /* Ambient orb */
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) scale(1); }
-            50% { transform: translateY(-20px) scale(1.02); }
-        }
-        .orb { animation: float 8s ease-in-out infinite; }
-        .orb2 { animation: float 10s ease-in-out infinite reverse; animation-delay: 2s; }
-
-        /* Pulse dot */
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,211,153,0.4); }
-            50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(52,211,153,0); }
-        }
-        .pulse-dot { animation: pulse-dot 2s ease infinite; }
-
-        /* Loading spinner in button */
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner { animation: spin 0.8s linear infinite; }
-
-        /* Grid background lines */
-        .grid-bg {
-            background-image: 
-                linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px);
-            background-size: 60px 60px;
-        }
-
-        /* Result panel transition */
-        .result-enter { transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
-
-        /* Badge */
-        .badge {
-            font-size: 10px;
-            font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            padding: 2px 8px;
-            border-radius: 20px;
-        }
-        .badge-success { background: rgba(52,211,153,0.1); color: #34d399; border: 1px solid rgba(52,211,153,0.2); }
-        .badge-error { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.2); }
-        .badge-running { background: rgba(99,102,241,0.1); color: #818cf8; border: 1px solid rgba(99,102,241,0.2); }
     </style>
 </head>
-<body class="grid-bg">
+<body class="cyber-grid relative min-h-screen flex flex-col selection:bg-brand-500 selection:text-white">
 
-    <!-- Background Orbs -->
-    <div class="fixed pointer-events-none inset-0 overflow-hidden z-0">
-        <div class="orb absolute top-[-15%] left-[5%] w-[500px] h-[500px] rounded-full" style="background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%); filter: blur(40px);"></div>
-        <div class="orb2 absolute bottom-[-10%] right-[5%] w-[600px] h-[600px] rounded-full" style="background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%); filter: blur(60px);"></div>
-        <div class="orb absolute top-[40%] left-[50%] w-[400px] h-[400px] rounded-full" style="background: radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%); filter: blur(50px); animation-delay: 4s;"></div>
-    </div>
+    <!-- Interactive Dynamic Canvas Background -->
+    <canvas id="bgCanvas"></canvas>
 
-    <!-- Nav -->
-    <nav class="relative z-10 flex items-center justify-between px-8 py-4 glass border-b border-white/[0.05]">
+    <!-- Ambient Glowing Gradient Spheres -->
+    <div class="fixed top-[-100px] left-1/4 w-[600px] h-[600px] bg-indigo-600/10 rounded-full blur-[140px] pointer-events-none z-0"></div>
+    <div class="fixed bottom-[-150px] right-10 w-[550px] h-[550px] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none z-0"></div>
+    <div class="fixed top-1/2 left-[-150px] w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[140px] pointer-events-none z-0"></div>
+
+    <!-- Top Navigation Bar -->
+    <header class="relative z-20 border-b border-white/[0.07] glass-card px-6 py-3.5 flex items-center justify-between">
         <div class="flex items-center gap-3">
-            <!-- Logo -->
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #4f46e5, #7c3aed); box-shadow: 0 0 20px rgba(99,102,241,0.4);">
-                <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            </div>
-            <span class="font-bold text-lg tracking-tight text-white">fixion</span>
-            <span class="badge badge-running">v0.1.0</span>
-        </div>
-
-        <div class="flex items-center gap-6">
-            <div class="flex items-center gap-2">
-                <div class="pulse-dot w-2 h-2 rounded-full bg-emerald-400"></div>
-                <span class="text-xs text-slate-400 font-medium">Agent Online</span>
-            </div>
-            <a href="https://github.com/Supratik24/Fixion" target="_blank" class="glass glass-hover flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white transition-colors">
-                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-                Supratik24/Fixion
-            </a>
-        </div>
-    </nav>
-
-    <!-- Main Layout -->
-    <main class="relative z-10 flex h-[calc(100vh-60px)]">
-
-        <!-- Left Sidebar -->
-        <aside class="w-[380px] flex flex-col border-r border-white/[0.05] overflow-y-auto">
-            <!-- Header -->
-            <div class="p-6 border-b border-white/[0.05]">
-                <h2 class="text-sm font-semibold text-slate-300 mb-0.5">New Task</h2>
-                <p class="text-xs text-slate-600">Configure and deploy the autonomous SWE agent.</p>
+            <!-- Brand Icon -->
+            <div class="relative w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-purple-600 flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.5)]">
+                <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-black"></span>
             </div>
             
-            <!-- Form -->
-            <form id="fixForm" class="flex flex-col p-5 gap-5 flex-1">
-                
-                <!-- Repo -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
-                        <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
-                        Repository Path
-                    </label>
-                    <input id="repo_url" type="text" class="input-field mono w-full rounded-lg px-3 py-2.5 text-xs" value="c:\Users\supra\Desktop\Fixion\tests\fixtures\buggy_math" required>
+            <div class="flex flex-col">
+                <div class="flex items-center gap-2">
+                    <span class="font-extrabold text-lg tracking-tight shimmer-text">FIXION</span>
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-brand-400 bg-brand-500/10 border border-brand-500/20 px-2 py-0.5 rounded-md">AI SWE Core</span>
                 </div>
-                
-                <!-- Issue -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
-                        <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                        Issue Description
-                    </label>
-                    <textarea id="issue_text" rows="4" class="input-field w-full rounded-lg px-3 py-2.5 text-xs mono resize-none leading-relaxed" required>divide() silently returns 0 when b=0. It should raise ZeroDivisionError.</textarea>
+                <span class="text-[11px] text-slate-400 font-medium">Autonomous Repository Bug Resolver</span>
+            </div>
+        </div>
+
+        <!-- Central Live Telemetry Pills -->
+        <div class="hidden md:flex items-center gap-3">
+            <!-- Live Status Indicator -->
+            <div class="glass-pill px-3.5 py-1.5 rounded-full flex items-center gap-2 border border-white/[0.08]">
+                <span id="telemetryDot" class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                <span id="telemetryStatus" class="text-xs font-semibold text-slate-200">System Ready</span>
+            </div>
+
+            <!-- Runtime Timer -->
+            <div class="glass-pill px-3 py-1.5 rounded-full flex items-center gap-1.5 mono text-xs text-slate-300">
+                <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7v5l3 2"/>
+                </svg>
+                <span id="runtimeTimer" class="font-medium">00:00.0</span>
+            </div>
+
+            <!-- Iterations Counter -->
+            <div class="glass-pill px-3 py-1.5 rounded-full flex items-center gap-1.5 mono text-xs text-slate-300">
+                <span class="text-[10px] uppercase text-slate-400">Iter</span>
+                <span id="iterCounter" class="font-bold text-indigo-300">0/6</span>
+            </div>
+        </div>
+
+        <!-- Right Action Controls -->
+        <div class="flex items-center gap-3">
+            <!-- Audio Toggle Button -->
+            <button id="audioToggleBtn" title="Toggle Sound FX" class="w-8 h-8 rounded-lg glass-pill flex items-center justify-center text-slate-400 hover:text-white transition-all hover:border-brand-500/40">
+                <svg id="audioIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                </svg>
+            </button>
+
+            <!-- GitHub Repo Link (No push) -->
+            <a href="https://github.com/Supratik24/Fixion" target="_blank" rel="noopener noreferrer" class="glass-pill px-3.5 py-1.5 rounded-lg flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white hover:border-brand-500/40 transition-all">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                <span>GitHub</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Visual Agent Pipeline HUD Tracker -->
+    <section class="relative z-10 px-6 py-3 border-b border-white/[0.06] bg-slate-950/40 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto py-1">
+            
+            <!-- Step 1: Ingest -->
+            <div id="step-ingest" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
+                <div class="relative w-8 h-8 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center font-bold text-xs text-slate-400 step-icon-box">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                    <span class="stage-ping-indicator hidden absolute inset-0 rounded-lg bg-indigo-500/30 stage-ping"></span>
                 </div>
-                
-                <!-- Test Path -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-xs font-medium text-slate-400 flex items-center gap-1.5">
-                        <svg class="w-3 h-3 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-                        Target Test
-                        <span class="text-slate-600 text-[10px] ml-auto font-normal">optional</span>
-                    </label>
-                    <input id="test_path" type="text" class="input-field mono w-full rounded-lg px-3 py-2.5 text-xs" value="tests/test_math_utils.py::test_divide_by_zero">
+                <div class="flex flex-col">
+                    <span class="text-xs font-semibold text-slate-200">1. Clone & Ingest</span>
+                    <span class="text-[10px] text-slate-500 font-mono step-detail">Idle</span>
+                </div>
+            </div>
+
+            <div class="h-[1px] w-6 md:w-12 bg-white/10"></div>
+
+            <!-- Step 2: Index -->
+            <div id="step-index" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
+                <div class="relative w-8 h-8 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center font-bold text-xs text-slate-400 step-icon-box">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                    <span class="stage-ping-indicator hidden absolute inset-0 rounded-lg bg-cyan-500/30 stage-ping"></span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xs font-semibold text-slate-200">2. AST & LanceDB</span>
+                    <span class="text-[10px] text-slate-500 font-mono step-detail">Idle</span>
+                </div>
+            </div>
+
+            <div class="h-[1px] w-6 md:w-12 bg-white/10"></div>
+
+            <!-- Step 3: Sandbox -->
+            <div id="step-sandbox" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
+                <div class="relative w-8 h-8 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center font-bold text-xs text-slate-400 step-icon-box">
+                    <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                    <span class="stage-ping-indicator hidden absolute inset-0 rounded-lg bg-blue-500/30 stage-ping"></span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xs font-semibold text-slate-200">3. Docker Container</span>
+                    <span class="text-[10px] text-slate-500 font-mono step-detail">Idle</span>
+                </div>
+            </div>
+
+            <div class="h-[1px] w-6 md:w-12 bg-white/10"></div>
+
+            <!-- Step 4: Reasoning -->
+            <div id="step-reason" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
+                <div class="relative w-8 h-8 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center font-bold text-xs text-slate-400 step-icon-box">
+                    <svg class="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    <span class="stage-ping-indicator hidden absolute inset-0 rounded-lg bg-purple-500/30 stage-ping"></span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xs font-semibold text-slate-200">4. LLM Synthesis</span>
+                    <span class="text-[10px] text-slate-500 font-mono step-detail">Idle</span>
+                </div>
+            </div>
+
+            <div class="h-[1px] w-6 md:w-12 bg-white/10"></div>
+
+            <!-- Step 5: Verification & Patch -->
+            <div id="step-verify" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
+                <div class="relative w-8 h-8 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center font-bold text-xs text-slate-400 step-icon-box">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="stage-ping-indicator hidden absolute inset-0 rounded-lg bg-emerald-500/30 stage-ping"></span>
+                </div>
+                <div class="flex flex-col">
+                    <span class="text-xs font-semibold text-slate-200">5. Verification</span>
+                    <span class="text-[10px] text-slate-500 font-mono step-detail">Idle</span>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Main Workspace Grid -->
+    <main class="relative z-10 flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+        <!-- Left Configuration & Control Sidebar -->
+        <aside class="w-full lg:w-[420px] flex flex-col border-r border-white/[0.07] bg-slate-950/60 backdrop-blur-xl overflow-y-auto">
+            
+            <div class="p-5 border-b border-white/[0.06] flex items-center justify-between">
+                <div>
+                    <h2 class="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                        <svg class="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+                        </svg>
+                        Issue Directive
+                    </h2>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Define target repository and problem statement</p>
                 </div>
 
-                <!-- Separator -->
-                <div class="border-t border-white/[0.04] mt-1"></div>
+                <!-- Quick Presets Dropdown -->
+                <div class="flex items-center gap-1">
+                    <button type="button" onclick="loadPreset('buggy_math')" class="text-[11px] font-medium px-2.5 py-1 rounded-md glass-pill text-indigo-300 hover:text-white hover:border-brand-500/50 transition-all flex items-center gap-1">
+                        <span>✨ Load Sample</span>
+                    </button>
+                </div>
+            </div>
 
-                <!-- Config Pills -->
-                <div class="flex flex-col gap-2">
-                    <label class="text-xs font-medium text-slate-400">Runtime Config</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="glass rounded-lg p-3">
-                            <div class="text-[9px] text-slate-600 uppercase tracking-wider mb-1">Backend</div>
-                            <div class="text-xs text-indigo-400 mono font-medium">gemini</div>
+            <!-- Task Form -->
+            <form id="fixForm" class="p-5 flex flex-col gap-4 flex-1">
+
+                <!-- Repository Path Input -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                            </svg>
+                            Repository Path or Git URL
+                        </span>
+                        <span class="text-[10px] text-slate-500 mono font-normal">local / remote</span>
+                    </label>
+                    <div class="relative">
+                        <input id="repo_url" type="text" class="cyber-input mono w-full rounded-xl px-3.5 py-2.5 text-xs text-slate-200" 
+                               value="c:\Users\supra\Desktop\Fixion\tests\fixtures\buggy_math" required>
+                    </div>
+                </div>
+
+                <!-- Issue Description -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            Issue Description / Requirement
+                        </span>
+                    </label>
+                    <textarea id="issue_text" rows="4" class="cyber-input w-full rounded-xl px-3.5 py-2.5 text-xs text-slate-200 mono resize-none leading-relaxed" 
+                              required>divide() silently returns 0 when b=0. It should raise ZeroDivisionError.</textarea>
+                </div>
+
+                <!-- Targeted Failing Test (Optional) -->
+                <div class="flex flex-col gap-1.5">
+                    <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                            </svg>
+                            Targeted Verification Test
+                        </span>
+                        <span class="text-[10px] text-slate-500">optional</span>
+                    </label>
+                    <input id="test_path" type="text" class="cyber-input mono w-full rounded-xl px-3.5 py-2 text-xs text-slate-300" 
+                           value="tests/test_math_utils.py::test_divide_by_zero">
+                </div>
+
+                <!-- Modern Bento Grid: System Specs & Engine Info -->
+                <div class="pt-2 border-t border-white/[0.06] flex flex-col gap-2">
+                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Engine Architecture</span>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="glass-card rounded-xl p-3 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] text-slate-500 font-medium uppercase">Backend</span>
+                                <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                            </div>
+                            <span class="font-bold text-slate-200 mt-1 mono">gemini-3.8-flash</span>
                         </div>
-                        <div class="glass rounded-lg p-3">
-                            <div class="text-[9px] text-slate-600 uppercase tracking-wider mb-1">Max Retries</div>
-                            <div class="text-xs text-indigo-400 mono font-medium">5</div>
+
+                        <div class="glass-card rounded-xl p-3 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] text-slate-500 font-medium uppercase">Container</span>
+                                <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                            </div>
+                            <span class="font-bold text-slate-200 mt-1 mono">Docker Sandbox</span>
                         </div>
-                        <div class="glass rounded-lg p-3">
-                            <div class="text-[9px] text-slate-600 uppercase tracking-wider mb-1">Sandbox</div>
-                            <div class="text-xs text-emerald-400 mono font-medium">Docker</div>
+
+                        <div class="glass-card rounded-xl p-3 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] text-slate-500 font-medium uppercase">Vector DB</span>
+                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            </div>
+                            <span class="font-bold text-slate-200 mt-1 mono">LanceDB</span>
                         </div>
-                        <div class="glass rounded-lg p-3">
-                            <div class="text-[9px] text-slate-600 uppercase tracking-wider mb-1">Indexer</div>
-                            <div class="text-xs text-emerald-400 mono font-medium">LanceDB</div>
+
+                        <div class="glass-card rounded-xl p-3 flex flex-col justify-between">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] text-slate-500 font-medium uppercase">Parser</span>
+                                <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+                            </div>
+                            <span class="font-bold text-slate-200 mt-1 mono">Tree-sitter AST</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Submit / Stop -->
-                <div class="flex gap-2 mt-2">
-                    <button type="submit" id="submitBtn" class="btn-primary flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold text-white flex items-center justify-center gap-2">
-                        <span id="btnText">Run Fixion Agent</span>
-                        <svg id="btnIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <!-- Control Buttons Row -->
+                <div class="mt-auto pt-3 flex gap-2.5">
+                    <button type="submit" id="submitBtn" class="btn-launch flex-1 py-3 px-5 rounded-xl font-bold text-white text-xs flex items-center justify-center gap-2">
+                        <svg id="btnIcon" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                        </svg>
+                        <span id="btnText">Deploy Fixion Agent</span>
                     </button>
-                    
-                    <button type="button" id="stopBtn" class="hidden bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-400 py-2.5 px-4 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+
+                    <!-- Stop / Cancel Button (Revealed when running) -->
+                    <button type="button" id="stopBtn" class="hidden px-4 py-3 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-400 text-xs font-bold flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(244,63,94,0.25)]">
+                        <span class="w-2 h-2 rounded-sm bg-rose-400 animate-pulse"></span>
                         <span>Stop</span>
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
                     </button>
                 </div>
             </form>
         </aside>
 
-        <!-- Right Panel -->
-        <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Right Visual Workspace: Terminal & Resolution Center -->
+        <section class="flex-1 flex flex-col bg-slate-950/30 overflow-hidden relative">
 
-            <!-- Tab Row -->
-            <div class="flex items-center gap-1 px-5 py-3 border-b border-white/[0.05] bg-black/20">
-                <button class="tab-btn text-xs font-medium px-3 py-1.5 rounded-md text-slate-300 bg-white/[0.05] border border-white/[0.06]" data-tab="logs">
-                    Live Logs
-                </button>
-                <button class="tab-btn text-xs font-medium px-3 py-1.5 rounded-md text-slate-600 hover:text-slate-400 transition-colors" data-tab="result" id="resultTab" disabled>
-                    Resolution Report
-                </button>
-                <div class="ml-auto flex items-center gap-2">
-                    <span id="statusBadge" class="badge badge-running hidden">Idle</span>
-                    <button id="clearBtn" class="text-[10px] text-slate-600 hover:text-slate-400 transition-colors px-2 py-1">
-                        Clear
+            <!-- Tab Switcher Header -->
+            <div class="px-5 py-3 border-b border-white/[0.06] glass-card flex items-center justify-between gap-4">
+                
+                <div class="flex items-center gap-1 p-1 bg-black/40 rounded-xl border border-white/[0.05]">
+                    <button id="tabLogsBtn" class="tab-trigger px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600/30 border border-indigo-500/30 shadow-sm flex items-center gap-2 transition-all">
+                        <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        <span>Agent Telemetry</span>
+                        <span id="logCountBadge" class="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded-full">0</span>
+                    </button>
+
+                    <button id="tabResultBtn" disabled class="tab-trigger px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-300 flex items-center gap-2 transition-all cursor-not-allowed">
+                        <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>Resolution Diff</span>
+                        <span id="diffIndicatorDot" class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+                    </button>
+                </div>
+
+                <!-- Secondary Utilities for Terminal -->
+                <div id="terminalControls" class="flex items-center gap-2">
+                    <!-- Log Level Filter -->
+                    <div class="relative">
+                        <select id="logFilter" class="bg-black/40 text-[11px] text-slate-300 border border-white/[0.08] rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500">
+                            <option value="all">All Logs</option>
+                            <option value="agent">Agent Actions</option>
+                            <option value="errors">Warnings & Errors</option>
+                        </select>
+                    </div>
+
+                    <!-- Auto-scroll Pin Toggle -->
+                    <button id="autoScrollToggle" title="Auto-Scroll Locked" class="px-2.5 py-1 rounded-lg glass-pill text-[11px] text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 transition-all">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <span>Auto-Scroll</span>
+                    </button>
+
+                    <!-- Clear Console -->
+                    <button id="clearLogBtn" title="Clear Terminal" class="p-1.5 rounded-lg glass-pill text-slate-400 hover:text-white transition-all">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
                     </button>
                 </div>
             </div>
 
-            <!-- Terminal Panel -->
-            <div id="logsPanel" class="flex-1 overflow-hidden flex flex-col">
-                <div class="p-3 border-b border-white/[0.04] flex items-center gap-2 bg-black/30">
-                    <div class="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></div>
-                    <span class="mono text-[10px] text-slate-600 ml-2">fixion-agent ~ bash</span>
-                    <div class="ml-auto flex items-center gap-1.5">
-                        <div id="connIndicator" class="w-1.5 h-1.5 rounded-full bg-slate-700"></div>
-                        <span id="connStatus" class="text-[9px] text-slate-700 uppercase tracking-wider">Offline</span>
-                    </div>
-                </div>
-                <div id="terminalContainer" class="flex-1 overflow-y-auto p-4 bg-black/40">
-                    <div id="terminal" class="mono text-[12px] flex flex-col gap-0.5">
-                        <span class="text-slate-600">───── Fixion OS v0.1.0 ─────</span>
-                        <span class="text-slate-700">Awaiting task directive...</span>
-                        <span class="text-indigo-900 opacity-0 animate-pulse">▊</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Result Panel -->
-            <div id="resultPanel" class="flex-1 overflow-y-auto hidden p-6">
+            <!-- Panel 1: Live Interactive Terminal Console -->
+            <div id="logsPanel" class="flex-1 flex flex-col overflow-hidden bg-slate-950/70 relative">
                 
-                <!-- Result Header -->
-                <div class="flex items-start justify-between mb-6">
-                    <div>
-                        <h2 class="text-xl font-bold text-white mb-1">Resolution Report</h2>
-                        <p class="text-xs text-slate-500">Automated analysis generated by Fixion agent</p>
+                <!-- Terminal Decorative Window Header -->
+                <div class="px-4 py-2 bg-black/50 border-b border-white/[0.05] flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500/70 inline-block"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500/70 inline-block"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/70 inline-block"></span>
+                        <span class="ml-2 mono text-[11px] text-slate-500 font-medium">fixion-terminal: active-session</span>
                     </div>
-                    <div id="resultStatusBadge"></div>
-                </div>
-
-                <!-- Info Cards -->
-                <div class="grid grid-cols-2 gap-3 mb-6">
-                    <div class="glass glass-hover rounded-xl p-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="w-6 h-6 rounded-md bg-red-500/10 flex items-center justify-center">
-                                <svg class="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            </div>
-                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Root Cause</span>
-                        </div>
-                        <p id="resultCause" class="text-sm text-slate-300 leading-relaxed"></p>
-                    </div>
-                    <div class="glass glass-hover rounded-xl p-4">
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center">
-                                <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            </div>
-                            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Fix Applied</span>
-                        </div>
-                        <p id="resultFix" class="text-sm text-slate-300 leading-relaxed"></p>
+                    
+                    <div class="flex items-center gap-2 text-[10px] mono text-slate-500">
+                        <span>Encoding: UTF-8</span>
+                        <span>•</span>
+                        <span id="logByteSize">0 B</span>
                     </div>
                 </div>
 
-                <!-- Patch Diff -->
-                <div class="glass rounded-xl overflow-hidden">
-                    <div class="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between bg-black/20">
-                        <div class="flex items-center gap-2">
-                            <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-                            <span class="text-xs font-semibold text-slate-400">Generated Patch</span>
-                        </div>
-                        <button onclick="copyPatch()" class="text-[10px] text-slate-600 hover:text-indigo-400 transition-colors uppercase tracking-wider font-medium">Copy</button>
+                <!-- Scrolling Logs Container -->
+                <div id="terminalContainer" class="flex-1 p-4 overflow-y-auto font-mono text-[12px] leading-relaxed flex flex-col gap-1">
+                    <div id="terminalRows" class="flex flex-col gap-1">
+                        <div class="text-slate-600">---------------- Fixion Engine Online ----------------</div>
+                        <div class="text-slate-500">System calibrated. Configure parameters and click "Deploy Fixion Agent" to begin.</div>
                     </div>
-                    <pre class="!m-0 !bg-transparent overflow-x-auto"><code id="resultPatch" class="language-diff !text-[12px] !leading-relaxed mono p-4 block"></code></pre>
+                </div>
+
+                <!-- Bottom Status Bar -->
+                <div class="px-4 py-1.5 bg-black/60 border-t border-white/[0.04] flex items-center justify-between text-[11px] text-slate-500 mono">
+                    <div class="flex items-center gap-2">
+                        <span id="activeProcessIndicator" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                        <span id="activeProcessText">STANDBY</span>
+                    </div>
+                    <span id="activeJobIdText">NO JOB RUNNING</span>
                 </div>
             </div>
 
-        </div>
+            <!-- Panel 2: Resolution & Diff Inspector (Hidden Initially) -->
+            <div id="resultPanel" class="flex-1 hidden p-6 overflow-y-auto bg-slate-950/80">
+                <div class="max-w-5xl mx-auto flex flex-col gap-6">
+                    
+                    <!-- Result Summary Card -->
+                    <div class="glass-card rounded-2xl p-6 border glowing-border flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div id="resultBadgeIcon" class="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center">
+                                <svg class="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h3 id="resultTitle" class="text-lg font-bold text-white">Issue Resolved Successfully</h3>
+                                    <span id="resultSuccessPill" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">PASSED</span>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1">Autonomous patch synthesized and verified in isolated Docker container.</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button onclick="downloadPatch()" class="px-3.5 py-2 rounded-xl glass-pill text-xs font-semibold text-slate-200 hover:text-white hover:border-brand-500/40 transition-all flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                <span>Download .patch</span>
+                            </button>
+                            <button id="copyPatchBtn" onclick="copyPatch()" class="px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-xs font-semibold text-white transition-all flex items-center gap-2 shadow-lg shadow-brand-500/20">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                <span id="copyPatchText">Copy Patch</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Diagnosis Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Root Cause Analysis -->
+                        <div class="glass-card rounded-2xl p-5 border border-white/[0.07]">
+                            <div class="flex items-center gap-2 text-rose-400 mb-2">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                </svg>
+                                <span class="text-xs font-bold uppercase tracking-wider">Identified Root Cause</span>
+                            </div>
+                            <p id="resultRootCause" class="text-xs text-slate-300 leading-relaxed mono bg-black/40 p-3 rounded-xl border border-white/[0.04]">None identified.</p>
+                        </div>
+
+                        <!-- Fix Strategy Explanation -->
+                        <div class="glass-card rounded-2xl p-5 border border-white/[0.07]">
+                            <div class="flex items-center gap-2 text-emerald-400 mb-2">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                </svg>
+                                <span class="text-xs font-bold uppercase tracking-wider">Remediation Explanation</span>
+                            </div>
+                            <p id="resultFixExplanation" class="text-xs text-slate-300 leading-relaxed mono bg-black/40 p-3 rounded-xl border border-white/[0.04]">None.</p>
+                        </div>
+                    </div>
+
+                    <!-- Git Patch Diff Viewer -->
+                    <div class="glass-card rounded-2xl border border-white/[0.07] overflow-hidden flex flex-col">
+                        <div class="px-5 py-3 bg-black/40 border-b border-white/[0.06] flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                                </svg>
+                                <span class="text-xs font-bold text-slate-200">Unified Git Diff</span>
+                            </div>
+                            <span class="text-[11px] text-slate-400 mono">Unified format</span>
+                        </div>
+                        <div class="p-4 bg-black/60 overflow-x-auto">
+                            <pre class="!m-0 !bg-transparent"><code id="resultPatchCode" class="language-diff mono text-xs leading-relaxed">No patch generated yet.</code></pre>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+
     </main>
 
+    <!-- Interactive Canvas & Application Logic Scripts -->
     <script>
-        // Tab switching
-        let currentTab = 'logs';
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (btn.disabled) return;
-                currentTab = btn.dataset.tab;
-                document.querySelectorAll('.tab-btn').forEach(b => {
-                    b.className = 'tab-btn text-xs font-medium px-3 py-1.5 rounded-md text-slate-600 hover:text-slate-400 transition-colors';
-                });
-                btn.className = 'tab-btn text-xs font-medium px-3 py-1.5 rounded-md text-slate-300 bg-white/[0.05] border border-white/[0.06]';
-                document.getElementById('logsPanel').classList.toggle('hidden', currentTab !== 'logs');
-                document.getElementById('resultPanel').classList.toggle('hidden', currentTab !== 'result');
+        // ---------------------------------------------------------------------
+        // 1. HIGH-PERFORMANCE INTERACTIVE CANVAS BACKGROUND
+        // ---------------------------------------------------------------------
+        const canvas = document.getElementById('bgCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initParticles();
+        });
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 0.45;
+                this.vy = (Math.random() - 0.5) * 0.45;
+                this.radius = Math.random() * 1.5 + 0.8;
+                this.alpha = Math.random() * 0.4 + 0.15;
+            }
+            update(speedMultiplier = 1) {
+                this.x += this.vx * speedMultiplier;
+                this.y += this.vy * speedMultiplier;
+                if (this.x < 0) this.x = width;
+                if (this.x > width) this.x = 0;
+                if (this.y < 0) this.y = height;
+                if (this.y > height) this.y = 0;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(129, 140, 248, ${this.alpha})`;
+                ctx.fill();
+            }
+        }
+
+        let particles = [];
+        function initParticles() {
+            particles = [];
+            const count = Math.min(Math.floor((width * height) / 16000), 75);
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle());
+            }
+        }
+        initParticles();
+
+        let isRunningState = false;
+        function animateCanvas() {
+            ctx.clearRect(0, 0, width, height);
+
+            const speed = isRunningState ? 1.8 : 0.8;
+
+            // Draw connection lines
+            for (let i = 0; i < particles.length; i++) {
+                for (let j = i + 1; j < particles.length; j++) {
+                    const dx = particles[i].x - particles[j].x;
+                    const dy = particles[i].y - particles[j].y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 110) {
+                        ctx.beginPath();
+                        ctx.moveTo(particles[i].x, particles[i].y);
+                        ctx.lineTo(particles[j].x, particles[j].y);
+                        const alpha = (1 - dist / 110) * (isRunningState ? 0.18 : 0.08);
+                        ctx.strokeStyle = `rgba(99, 102, 241, ${alpha})`;
+                        ctx.lineWidth = 0.8;
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            particles.forEach(p => {
+                p.update(speed);
+                p.draw();
             });
+
+            requestAnimationFrame(animateCanvas);
+        }
+        animateCanvas();
+
+
+        // ---------------------------------------------------------------------
+        // 2. SYNTHESIZED AUDIO SOUND EFFECTS (Web Audio API)
+        // ---------------------------------------------------------------------
+        let audioEnabled = true;
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (!audioEnabled || !audioCtx) return;
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'start') {
+                    // Sci-fi chirp rising
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.18);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } else if (type === 'success') {
+                    // Dual chime
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+                    osc.start(now);
+                    osc.stop(now + 0.45);
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(90, now + 0.25);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+                    osc.start(now);
+                    osc.stop(now + 0.28);
+                }
+            } catch (e) {
+                console.warn('Audio playback error', e);
+            }
+        }
+
+        const audioToggleBtn = document.getElementById('audioToggleBtn');
+        const audioIcon = document.getElementById('audioIcon');
+        audioToggleBtn.addEventListener('click', () => {
+            audioEnabled = !audioEnabled;
+            if (audioEnabled) {
+                audioIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>';
+                audioToggleBtn.classList.remove('text-rose-400');
+            } else {
+                audioIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>';
+                audioToggleBtn.classList.add('text-rose-400');
+            }
         });
 
-        // Clear terminal
-        document.getElementById('clearBtn').addEventListener('click', () => {
-            document.getElementById('terminal').innerHTML = `
-                <span class="text-slate-600">───── Terminal cleared ─────</span>
-                <span class="text-slate-700">Ready for next task...</span>
-            `;
-        });
 
+        // ---------------------------------------------------------------------
+        // 3. UI ELEMENT REFERENCES & STATE
+        // ---------------------------------------------------------------------
         const form = document.getElementById('fixForm');
         const submitBtn = document.getElementById('submitBtn');
         const stopBtn = document.getElementById('stopBtn');
         const btnText = document.getElementById('btnText');
         const btnIcon = document.getElementById('btnIcon');
-        const terminal = document.getElementById('terminal');
-        const terminalContainer = document.getElementById('terminalContainer');
-        
-        let currentJobId = null;
 
-        function setConnStatus(online) {
-            const dot = document.getElementById('connIndicator');
-            const label = document.getElementById('connStatus');
-            dot.className = `w-1.5 h-1.5 rounded-full ${online ? 'bg-emerald-400' : 'bg-slate-700'}`;
-            label.className = `text-[9px] uppercase tracking-wider ${online ? 'text-emerald-500' : 'text-slate-700'}`;
-            label.textContent = online ? 'Live' : 'Offline';
+        const tabLogsBtn = document.getElementById('tabLogsBtn');
+        const tabResultBtn = document.getElementById('tabResultBtn');
+        const logsPanel = document.getElementById('logsPanel');
+        const resultPanel = document.getElementById('resultPanel');
+
+        const terminalRows = document.getElementById('terminalRows');
+        const terminalContainer = document.getElementById('terminalContainer');
+        const logFilter = document.getElementById('logFilter');
+        const autoScrollToggle = document.getElementById('autoScrollToggle');
+        const clearLogBtn = document.getElementById('clearLogBtn');
+
+        const telemetryDot = document.getElementById('telemetryDot');
+        const telemetryStatus = document.getElementById('telemetryStatus');
+        const runtimeTimer = document.getElementById('runtimeTimer');
+        const iterCounter = document.getElementById('iterCounter');
+        const logCountBadge = document.getElementById('logCountBadge');
+        const logByteSize = document.getElementById('logByteSize');
+        const activeProcessIndicator = document.getElementById('activeProcessIndicator');
+        const activeProcessText = document.getElementById('activeProcessText');
+        const activeJobIdText = document.getElementById('activeJobIdText');
+
+        let autoScrollEnabled = true;
+        let logLineCount = 0;
+        let totalLogBytes = 0;
+        let timerInterval = null;
+        let startTime = 0;
+        let currentJobId = null;
+        let currentResultData = null;
+
+        // Pipeline stage elements
+        const stages = {
+            ingest: document.getElementById('step-ingest'),
+            index: document.getElementById('step-index'),
+            sandbox: document.getElementById('step-sandbox'),
+            reason: document.getElementById('step-reason'),
+            verify: document.getElementById('step-verify')
+        };
+
+        function resetPipelineHUD() {
+            Object.values(stages).forEach(el => {
+                el.classList.remove('opacity-100');
+                el.classList.add('opacity-60');
+                const box = el.querySelector('.step-icon-box');
+                box.classList.remove('border-indigo-500', 'border-emerald-500', 'bg-indigo-950/40', 'bg-emerald-950/40');
+                const ping = el.querySelector('.stage-ping-indicator');
+                if (ping) ping.classList.add('hidden');
+                const detail = el.querySelector('.step-detail');
+                if (detail) detail.textContent = 'Idle';
+            });
         }
 
-        function appendLog(text, type) {
-            const el = document.createElement('div');
-            el.className = 'log-line flex items-start gap-2 py-0.5';
-            
-            const timestamp = new Date().toLocaleTimeString('en-US', {hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'});
-            const timeEl = document.createElement('span');
-            timeEl.className = 'text-slate-700 text-[10px] shrink-0 pt-[1px]';
-            timeEl.textContent = timestamp;
-            
-            const textEl = document.createElement('span');
-            
-            const t = text.replace(/\\n/g, '\n');
-            
-            if (text.includes('[WARNING]') || text.includes('⚠️') || text.includes('Retrying')) {
-                textEl.className = 'text-amber-400/80';
-            } else if (text.includes('[ERROR]') || text.includes('❌') || text.includes('Fatal') || text.includes('cancelled')) {
-                textEl.className = 'text-red-400/80';
-            } else if (text.includes('✅') || text.includes('[OK]')) {
-                textEl.className = 'text-emerald-400';
-            } else if (text.includes('🚀') || text.includes('🤖') || text.includes('🐳') || text.includes('🔍')) {
-                textEl.className = 'text-indigo-400 font-semibold';
-            } else if (text.includes('Job ID')) {
-                textEl.className = 'text-purple-400';
+        function setStageActive(stageKey, detailText = 'Processing...') {
+            const el = stages[stageKey];
+            if (!el) return;
+            el.classList.remove('opacity-60');
+            el.classList.add('opacity-100');
+
+            const box = el.querySelector('.step-icon-box');
+            box.classList.add('border-indigo-500', 'bg-indigo-950/60');
+            box.classList.remove('border-white/10');
+
+            const ping = el.querySelector('.stage-ping-indicator');
+            if (ping) ping.classList.remove('hidden');
+
+            const detail = el.querySelector('.step-detail');
+            if (detail) {
+                detail.textContent = detailText;
+                detail.classList.add('text-indigo-400');
+            }
+        }
+
+        function setStageDone(stageKey, detailText = 'Completed') {
+            const el = stages[stageKey];
+            if (!el) return;
+            el.classList.remove('opacity-60');
+            el.classList.add('opacity-100');
+
+            const box = el.querySelector('.step-icon-box');
+            box.classList.remove('border-indigo-500', 'bg-indigo-950/60');
+            box.classList.add('border-emerald-500', 'bg-emerald-950/40');
+
+            const ping = el.querySelector('.stage-ping-indicator');
+            if (ping) ping.classList.add('hidden');
+
+            const detail = el.querySelector('.step-detail');
+            if (detail) {
+                detail.textContent = detailText;
+                detail.classList.remove('text-indigo-400');
+                detail.classList.add('text-emerald-400');
+            }
+        }
+
+
+        // ---------------------------------------------------------------------
+        // 4. TAB SWITCHING LOGIC
+        // ---------------------------------------------------------------------
+        tabLogsBtn.addEventListener('click', () => switchTab('logs'));
+        tabResultBtn.addEventListener('click', () => {
+            if (!tabResultBtn.disabled) switchTab('result');
+        });
+
+        function switchTab(tab) {
+            if (tab === 'logs') {
+                logsPanel.classList.remove('hidden');
+                resultPanel.classList.add('hidden');
+                tabLogsBtn.className = 'tab-trigger px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600/30 border border-indigo-500/30 shadow-sm flex items-center gap-2 transition-all';
+                tabResultBtn.className = 'tab-trigger px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-2 transition-all';
             } else {
-                textEl.className = 'text-slate-400';
+                logsPanel.classList.add('hidden');
+                resultPanel.classList.remove('hidden');
+                tabResultBtn.className = 'tab-trigger px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-indigo-600/30 border border-indigo-500/30 shadow-sm flex items-center gap-2 transition-all';
+                tabLogsBtn.className = 'tab-trigger px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white flex items-center gap-2 transition-all';
+            }
+        }
+
+
+        // ---------------------------------------------------------------------
+        // 5. AUTO-SCROLL & TERMINAL CONTROLS
+        // ---------------------------------------------------------------------
+        autoScrollToggle.addEventListener('click', () => {
+            autoScrollEnabled = !autoScrollEnabled;
+            if (autoScrollEnabled) {
+                autoScrollToggle.classList.replace('text-slate-500', 'text-emerald-400');
+                autoScrollToggle.classList.replace('border-white/10', 'border-emerald-500/30');
+            } else {
+                autoScrollToggle.classList.replace('text-emerald-400', 'text-slate-500');
+                autoScrollToggle.classList.replace('border-emerald-500/30', 'border-white/10');
+            }
+        });
+
+        clearLogBtn.addEventListener('click', () => {
+            terminalRows.innerHTML = `
+                <div class="text-slate-600">---------------- Console Cleared ----------------</div>
+            `;
+            logLineCount = 0;
+            totalLogBytes = 0;
+            logCountBadge.textContent = '0';
+            logByteSize.textContent = '0 B';
+        });
+
+        logFilter.addEventListener('change', () => {
+            applyLogFilters();
+        });
+
+        function applyLogFilters() {
+            const filterVal = logFilter.value;
+            const rows = terminalRows.querySelectorAll('.terminal-row');
+            rows.forEach(r => {
+                if (filterVal === 'all') {
+                    r.style.display = 'flex';
+                } else if (filterVal === 'agent') {
+                    r.style.display = r.dataset.isAgent === 'true' ? 'flex' : 'none';
+                } else if (filterVal === 'errors') {
+                    r.style.display = r.dataset.isError === 'true' ? 'flex' : 'none';
+                }
+            });
+        }
+
+
+        // ---------------------------------------------------------------------
+        // 6. TERMINAL LOG APPENDER WITH SMART HIGHLIGHTING
+        // ---------------------------------------------------------------------
+        function appendTerminalLog(rawText) {
+            logLineCount++;
+            totalLogBytes += rawText.length;
+            logCountBadge.textContent = logLineCount;
+            logByteSize.textContent = totalLogBytes > 1024 ? (totalLogBytes / 1024).toFixed(1) + ' KB' : totalLogBytes + ' B';
+
+            const unescaped = rawText.replace(/\\n/g, '\n');
+            const row = document.createElement('div');
+            row.className = 'terminal-row flex items-start gap-2.5 py-0.5';
+
+            // Timestamp
+            const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'text-slate-600 text-[10px] shrink-0 pt-0.5 select-none';
+            timeSpan.textContent = ts;
+
+            // Content Element
+            const contentSpan = document.createElement('div');
+            contentSpan.className = 'flex-1 break-all';
+
+            // Tagging and styling
+            let isAgent = false;
+            let isError = false;
+
+            if (rawText.includes('❌') || rawText.includes('[ERROR]') || rawText.includes('Fatal Error')) {
+                contentSpan.className += ' text-rose-400 font-semibold bg-rose-950/20 px-2 py-0.5 rounded border-l-2 border-rose-500';
+                isError = true;
+            } else if (rawText.includes('[WARNING]') || rawText.includes('⚠️') || rawText.includes('Retrying')) {
+                contentSpan.className += ' text-amber-400 bg-amber-950/20 px-2 py-0.5 rounded border-l-2 border-amber-500';
+                isError = true;
+            } else if (rawText.includes('✅') || rawText.includes('[OK]')) {
+                contentSpan.className += ' text-emerald-400 font-medium';
+            } else if (rawText.includes('🚀') || rawText.includes('🐳') || rawText.includes('🔍')) {
+                contentSpan.className += ' text-cyan-300 font-bold';
+                isAgent = true;
+            } else if (rawText.includes('🤖 Starting Agent Loop') || rawText.includes('Agent iteration')) {
+                contentSpan.className += ' text-indigo-300 font-bold bg-indigo-950/30 px-2 py-0.5 rounded border-l-2 border-indigo-500';
+                isAgent = true;
+            } else if (rawText.includes('apply_patch') || rawText.includes('run_tests') || rawText.includes('search_symbols')) {
+                contentSpan.className += ' text-purple-300 font-mono';
+                isAgent = true;
+            } else {
+                contentSpan.className += ' text-slate-300';
             }
 
-            textEl.textContent = t;
-            el.appendChild(timeEl);
-            el.appendChild(textEl);
-            terminal.appendChild(el);
-            terminalContainer.scrollTo({ top: terminalContainer.scrollHeight, behavior: 'smooth' });
+            contentSpan.textContent = unescaped;
+            row.dataset.isAgent = isAgent;
+            row.dataset.isError = isError;
+
+            row.appendChild(timeSpan);
+            row.appendChild(contentSpan);
+            terminalRows.appendChild(row);
+
+            // Filter check
+            if (logFilter.value === 'agent' && !isAgent) row.style.display = 'none';
+            if (logFilter.value === 'errors' && !isError) row.style.display = 'none';
+
+            // Auto-scroll
+            if (autoScrollEnabled) {
+                terminalContainer.scrollTo({
+                    top: terminalContainer.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+
+            // Detect Pipeline Milestones to update Visual HUD
+            detectPipelineStage(rawText);
         }
 
-        function setLoading(isLoading) {
-            submitBtn.disabled = isLoading;
-            btnText.textContent = isLoading ? 'Agent Running...' : 'Run Fixion Agent';
+        function detectPipelineStage(text) {
+            if (text.includes('🚀 Cloning repository')) {
+                setStageActive('ingest', 'Cloning git repo...');
+            } else if (text.includes('✅ Cloned to')) {
+                setStageDone('ingest', 'Cloned HEAD');
+                setStageActive('index', 'Tree-sitter Parsing...');
+            } else if (text.includes('✅ Indexed')) {
+                setStageDone('index', 'Indexed');
+                setStageActive('sandbox', 'Building Docker...');
+            } else if (text.includes('✅ Sandbox ready')) {
+                setStageDone('sandbox', 'Container Ready');
+            } else if (text.includes('🤖 Starting Agent Loop')) {
+                setStageActive('reason', 'Active Loop');
+            } else if (text.includes('Agent iteration')) {
+                const match = text.match(/iteration (\d+)\/(\d+)/);
+                if (match) {
+                    iterCounter.textContent = `${match[1]}/${match[2]}`;
+                    setStageActive('reason', `Iter ${match[1]}`);
+                }
+            } else if (text.includes('apply_patch') || text.includes('run_tests')) {
+                setStageActive('verify', 'Testing Patch...');
+            } else if (text.includes('Job Finished!') || text.includes('Resolved')) {
+                setStageDone('reason', 'Finished');
+                setStageDone('verify', 'Verified');
+            }
+        }
+
+
+        // ---------------------------------------------------------------------
+        // 7. PRESET LOADER
+        // ---------------------------------------------------------------------
+        function loadPreset(name) {
+            if (name === 'buggy_math') {
+                document.getElementById('repo_url').value = 'c:\\Users\\supra\\Desktop\\Fixion\\tests\\fixtures\\buggy_math';
+                document.getElementById('issue_text').value = 'divide() silently returns 0 when b=0. It should raise ZeroDivisionError.';
+                document.getElementById('test_path').value = 'tests/test_math_utils.py::test_divide_by_zero';
+                appendTerminalLog('Loaded preset: [Buggy Math Fixture - ZeroDivisionError]');
+            }
+        }
+
+
+        // ---------------------------------------------------------------------
+        // 8. RUNTIME TIMER CONTROLLER
+        // ---------------------------------------------------------------------
+        function startTimer() {
+            startTime = Date.now();
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const mins = Math.floor(elapsed / 60000);
+                const secs = Math.floor((elapsed % 60000) / 1000);
+                const tenths = Math.floor((elapsed % 1000) / 100);
+                runtimeTimer.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${tenths}`;
+            }, 100);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+
+        // ---------------------------------------------------------------------
+        // 9. FORM SUBMISSION & SSE LOG STREAMING
+        // ---------------------------------------------------------------------
+        function setExecutingState(isRunning) {
+            isRunningState = isRunning;
+            submitBtn.disabled = isRunning;
             
-            if (isLoading) {
+            if (isRunning) {
                 stopBtn.classList.remove('hidden');
-                btnIcon.outerHTML = `<svg id="btnIcon" class="w-4 h-4 spinner" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`;
+                btnText.textContent = 'Agent Executing...';
+                btnIcon.classList.add('animate-spin');
+                btnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>';
+
+                telemetryDot.className = 'w-2 h-2 rounded-full bg-indigo-400 animate-ping';
+                telemetryStatus.textContent = 'Agent Running';
+                telemetryStatus.className = 'text-xs font-semibold text-indigo-400';
+
+                activeProcessIndicator.className = 'w-2 h-2 rounded-full bg-indigo-400 animate-pulse';
+                activeProcessText.textContent = 'EXECUTING AGENT WORKFLOW';
+
+                startTimer();
+                playSound('start');
             } else {
                 stopBtn.classList.add('hidden');
-                document.getElementById('btnIcon').outerHTML = `<svg id="btnIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`;
+                btnText.textContent = 'Deploy Fixion Agent';
+                btnIcon.classList.remove('animate-spin');
+                btnIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>';
+
+                telemetryDot.className = 'w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]';
+                telemetryStatus.textContent = 'System Ready';
+                telemetryStatus.className = 'text-xs font-semibold text-slate-200';
+
+                activeProcessIndicator.className = 'w-2 h-2 rounded-full bg-slate-600';
+                activeProcessText.textContent = 'STANDBY';
+
+                stopTimer();
             }
         }
 
+        // Cancel Job Handler
         stopBtn.addEventListener('click', async () => {
             if (!currentJobId) return;
-            appendLog('⚠️ Cancelling job...', 'warning');
+            appendTerminalLog('⚠️ Intercept: User requested immediate job termination.');
             stopBtn.disabled = true;
             try {
                 await fetch(`/api/cancel/${currentJobId}`, { method: 'POST' });
-            } catch (e) {
-                console.error(e);
+            } catch (err) {
+                console.error(err);
             }
             stopBtn.disabled = false;
         });
 
+        // Form Submit
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            setLoading(true);
-            setConnStatus(false);
-            terminal.innerHTML = '';
-            
-            // Switch to logs tab
-            document.querySelectorAll('.tab-btn')[0].click();
-            
-            const statusBadge = document.getElementById('statusBadge');
-            statusBadge.className = 'badge badge-running';
-            statusBadge.textContent = 'Running';
-            statusBadge.classList.remove('hidden');
+            setExecutingState(true);
+            resetPipelineHUD();
 
-            appendLog('Establishing uplink to Fixion Core...', 'info');
+            // Clear terminal
+            terminalRows.innerHTML = '';
+            logLineCount = 0;
+            totalLogBytes = 0;
+            iterCounter.textContent = '0/6';
+
+            // Ensure we are viewing the logs tab
+            switchTab('logs');
+
+            appendTerminalLog('Initiating connection to Fixion Core runtime...');
 
             const payload = {
                 repo_url: document.getElementById('repo_url').value,
@@ -492,93 +1199,127 @@
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json();
-                
+
                 if (data.error) {
-                    appendLog('❌ Error: ' + data.error);
-                    setLoading(false);
+                    appendTerminalLog(`❌ Failed to start job: ${data.error}`);
+                    setExecutingState(false);
+                    playSound('error');
                     return;
                 }
 
                 currentJobId = data.job_id;
-                appendLog('Job ID: ' + currentJobId);
-                setConnStatus(true);
+                activeJobIdText.textContent = `JOB: ${currentJobId.slice(0, 8)}`;
+                appendTerminalLog(`Assigned Job ID: ${currentJobId}`);
 
+                // Connect to SSE stream
                 const eventSource = new EventSource(`/api/logs/${currentJobId}`);
+
                 eventSource.onmessage = (event) => {
-                    if (event.data === '[DONE]') {
+                    const line = event.data;
+                    if (line === '[DONE]') {
                         eventSource.close();
-                        setConnStatus(false);
-                        currentJobId = null;
-                        fetchResult(data.job_id);
-                    } else if (event.data.trim()) {
-                        appendLog(event.data);
+                        appendTerminalLog('Uplink terminated cleanly [DONE]. Querying resolution report...');
+                        fetchResolutionResult(currentJobId);
+                    } else if (line.trim()) {
+                        appendTerminalLog(line);
                     }
                 };
-                eventSource.onerror = () => {
+
+                eventSource.onerror = (err) => {
                     eventSource.close();
-                    setConnStatus(false);
-                    currentJobId = null;
-                    appendLog('❌ Connection interrupted.');
-                    setLoading(false);
+                    appendTerminalLog('❌ Log stream disconnected.');
+                    setExecutingState(false);
                 };
+
             } catch (err) {
-                appendLog('❌ ' + err.message);
-                setLoading(false);
-                currentJobId = null;
+                appendTerminalLog(`❌ Network error: ${err.message}`);
+                setExecutingState(false);
+                playSound('error');
             }
         });
 
-        async function fetchResult(jobId) {
-            appendLog('Compiling resolution report...');
+
+        // ---------------------------------------------------------------------
+        // 10. RESOLUTION REPORT & DIFF PRESENTATION
+        // ---------------------------------------------------------------------
+        async function fetchResolutionResult(jobId) {
             try {
                 const res = await fetch(`/api/result/${jobId}`);
                 const data = await res.json();
-                
-                // Enable the result tab
-                const resultTab = document.getElementById('resultTab');
-                resultTab.disabled = false;
-                resultTab.classList.remove('text-slate-600');
-                resultTab.classList.add('text-slate-300');
-                
-                const statusBadge = document.getElementById('statusBadge');
-                const resultStatusBadge = document.getElementById('resultStatusBadge');
-                
-                if (data.result && data.result.success) {
-                    statusBadge.className = 'badge badge-success';
-                    statusBadge.textContent = 'Resolved';
-                    resultStatusBadge.innerHTML = '<span class="badge badge-success">✓ Resolved</span>';
+                currentResultData = data;
+
+                // Enable the Result tab
+                tabResultBtn.disabled = false;
+                tabResultBtn.classList.remove('text-slate-500', 'cursor-not-allowed');
+                tabResultBtn.classList.add('text-slate-200');
+
+                const diffIndicatorDot = document.getElementById('diffIndicatorDot');
+                const resultBadgeIcon = document.getElementById('resultBadgeIcon');
+                const resultTitle = document.getElementById('resultTitle');
+                const resultSuccessPill = document.getElementById('resultSuccessPill');
+                const resultRootCause = document.getElementById('resultRootCause');
+                const resultFixExplanation = document.getElementById('resultFixExplanation');
+                const resultPatchCode = document.getElementById('resultPatchCode');
+
+                const isSuccess = data.result && data.result.success;
+
+                if (isSuccess) {
+                    diffIndicatorDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]';
+                    resultBadgeIcon.className = 'w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center';
+                    resultBadgeIcon.innerHTML = '<svg class="w-6 h-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+                    resultTitle.textContent = 'Issue Resolved Successfully';
+                    resultSuccessPill.textContent = 'PASSED';
+                    resultSuccessPill.className = 'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
+                    playSound('success');
                 } else {
-                    statusBadge.className = 'badge badge-error';
-                    statusBadge.textContent = 'Unresolved';
-                    resultStatusBadge.innerHTML = '<span class="badge badge-error">✗ Unresolved</span>';
+                    diffIndicatorDot.className = 'w-1.5 h-1.5 rounded-full bg-rose-400 shadow-[0_0_6px_rgba(244,63,94,0.8)]';
+                    resultBadgeIcon.className = 'w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center';
+                    resultBadgeIcon.innerHTML = '<svg class="w-6 h-6 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+                    resultTitle.textContent = 'Issue Unresolved';
+                    resultSuccessPill.textContent = 'FAILED';
+                    resultSuccessPill.className = 'text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400';
+                    playSound('error');
                 }
 
                 if (data.result) {
-                    document.getElementById('resultCause').textContent = data.result.root_cause || '—';
-                    document.getElementById('resultFix').textContent = data.result.fix_explanation || '—';
-                    document.getElementById('resultPatch').textContent = data.result.patch || 'No patch generated.';
-                    hljs.highlightElement(document.getElementById('resultPatch'));
+                    resultRootCause.textContent = data.result.root_cause || 'No root cause specified.';
+                    resultFixExplanation.textContent = data.result.fix_explanation || 'No remediation details provided.';
+                    resultPatchCode.textContent = data.result.patch || 'No unified diff generated.';
+                    hljs.highlightElement(resultPatchCode);
                 }
 
-                appendLog('✅ Report ready. Switch to "Resolution Report" tab.');
+                appendTerminalLog('✅ Resolution report ready. Click "Resolution Diff" tab to inspect the patch.');
             } catch (err) {
-                appendLog('❌ Failed to load result: ' + err.message);
+                appendTerminalLog(`❌ Failed to retrieve result: ${err.message}`);
             } finally {
-                setLoading(false);
+                setExecutingState(false);
             }
         }
 
+        // Copy Patch to Clipboard
         function copyPatch() {
-            const patch = document.getElementById('resultPatch').textContent;
+            const patch = document.getElementById('resultPatchCode').textContent;
             navigator.clipboard.writeText(patch).then(() => {
-                const btn = event.target;
-                btn.textContent = 'Copied!';
-                btn.classList.replace('text-slate-600', 'text-indigo-400');
+                const textEl = document.getElementById('copyPatchText');
+                textEl.textContent = 'Copied!';
                 setTimeout(() => {
-                    btn.textContent = 'Copy';
-                    btn.classList.replace('text-indigo-400', 'text-slate-600');
+                    textEl.textContent = 'Copy Patch';
                 }, 2000);
             });
+        }
+
+        // Download Patch as .patch file
+        function downloadPatch() {
+            const patch = document.getElementById('resultPatchCode').textContent;
+            const blob = new Blob([patch], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fixion-patch-${Date.now()}.patch`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>
