@@ -23,13 +23,24 @@ from __future__ import annotations
 
 import json
 import logging
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from google import genai
 from google.genai import types as genai_types
 
+from agent.llm_client import (
+    BACKEND_DEFAULTS,
+    GROQ_BASE_URL,
+    OPENROUTER_BASE_URL,
+    _call_gemini,
+    _call_openai_compat,
+    gemini_tools_to_openai,
+    openai_history_append_assistant,
+    openai_history_append_tool_results,
+)
 from agent.tools import apply_patch as ap_mod
 from agent.tools import find_references as ref_mod
 from agent.tools import git_ops as git_mod
@@ -47,8 +58,6 @@ logger = logging.getLogger(__name__)
 # ── Data structures ────────────────────────────────────────────────────────────
 
 
-from typing import Any, Callable
-
 @dataclass
 class AgentContext:
     """Everything the agent needs for a single fix run."""
@@ -57,12 +66,13 @@ class AgentContext:
     repo_url: str
     issue_text: str
     failing_tests: list[str]        # test node IDs to focus on
-    embed_index: EmbedIndex
-    symbol_graph: SymbolGraph
-    sandbox: DockerSandbox
+    embed_index: EmbedIndex | None = None
+    symbol_graph: SymbolGraph | None = None
+    sandbox: DockerSandbox | None = None
     max_retries: int = field(default_factory=lambda: settings.max_retries)
     log_callback: Callable[[str], None] | None = None
-
+    use_symbol_graph: bool = field(default_factory=lambda: settings.use_symbol_graph)
+    use_semantic_search: bool = field(default_factory=lambda: settings.use_semantic_search)
 
 
 @dataclass
@@ -79,6 +89,7 @@ class AgentResult:
     final_traceback: str
     confidence: str                  # "high" | "medium" | "low"
     error_message: str = ""
+    metrics: dict[str, Any] = field(default_factory=dict)
 
 
 # ── Tool dispatch ──────────────────────────────────────────────────────────────
@@ -97,6 +108,8 @@ def _dispatch_tool(
 
     # ── Code search ──
     if tool_name == "search_code":
+        if not getattr(ctx, "use_semantic_search", True) or ctx.embed_index is None:
+            return {"results": [], "warning": "Semantic search is disabled for ablation."}
         return sc_mod.search_code(
             query=tool_args["query"],
             embed_index=ctx.embed_index,
@@ -114,18 +127,21 @@ def _dispatch_tool(
         )
 
     # ── Symbol graph ──
-    if tool_name == "find_definition":
-        return ref_mod.find_definition(tool_args["symbol_name"], ctx.symbol_graph)
-    if tool_name == "find_callers":
-        return ref_mod.find_callers(tool_args["symbol_name"], ctx.symbol_graph)
-    if tool_name == "find_callees":
-        return ref_mod.find_callees(tool_args["symbol_name"], ctx.symbol_graph)
-    if tool_name == "find_neighborhood":
-        return ref_mod.find_neighborhood(
-            tool_args["symbol_name"], ctx.symbol_graph, radius=tool_args.get("radius", 2)
-        )
-    if tool_name == "get_file_symbols":
-        return ref_mod.get_file_symbols(tool_args["file_path"], ctx.symbol_graph)
+    if tool_name in ("find_definition", "find_callers", "find_callees", "find_neighborhood", "get_file_symbols"):
+        if not getattr(ctx, "use_symbol_graph", True) or ctx.symbol_graph is None:
+            return {"results": [], "warning": "Symbol graph is disabled for ablation."}
+        if tool_name == "find_definition":
+            return ref_mod.find_definition(tool_args["symbol_name"], ctx.symbol_graph)
+        if tool_name == "find_callers":
+            return ref_mod.find_callers(tool_args["symbol_name"], ctx.symbol_graph)
+        if tool_name == "find_callees":
+            return ref_mod.find_callees(tool_args["symbol_name"], ctx.symbol_graph)
+        if tool_name == "find_neighborhood":
+            return ref_mod.find_neighborhood(
+                tool_args["symbol_name"], ctx.symbol_graph, radius=tool_args.get("radius", 2)
+            )
+        if tool_name == "get_file_symbols":
+            return ref_mod.get_file_symbols(tool_args["file_path"], ctx.symbol_graph)
 
     # ── Git ops ──
     if tool_name == "git_blame":
@@ -198,15 +214,6 @@ def run_agent(ctx: AgentContext) -> AgentResult:
     Supports multiple backends: gemini | groq | openrouter
     Set FIXION_BACKEND in .env to switch.
     """
-    import time
-    from agent.llm_client import (
-        BACKEND_DEFAULTS, GROQ_BASE_URL, OPENROUTER_BASE_URL,
-        ToolCall, LLMResponse,
-        _call_gemini, _call_openai_compat,
-        gemini_tools_to_openai,
-        openai_history_append_assistant, openai_history_append_tool_results,
-    )
-
     backend = settings.backend.lower()
     logger.info("Using backend: %s", backend)
 
@@ -241,12 +248,16 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
     last_patch = ""
     last_traceback = ""
     final_answer = ""
+    tokens_in = 0
+    tokens_out = 0
+    tool_call_count = 0
+    retries = 0
+    start_time = time.monotonic()
 
     logger.info("Starting agent loop for issue (max_retries=%d)", ctx.max_retries)
 
     # ── Gemini backend ─────────────────────────────────────────────────────────
     if backend == "gemini":
-        from google import genai
         from google.genai import types as genai_types
 
         gemini_tools = _build_tool_list()
@@ -261,6 +272,10 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
             llm_response, raw_content = _call_gemini(history, system_prompt, gemini_tools)
             history.append(raw_content)
 
+            tokens_in += getattr(llm_response, "prompt_tokens", 0)
+            tokens_out += getattr(llm_response, "completion_tokens", 0)
+            tool_call_count += len(llm_response.tool_calls)
+
             if not llm_response.has_tool_calls:
                 final_answer = llm_response.text
                 logger.info("Agent produced final answer after %d iterations.", iterations)
@@ -273,6 +288,8 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
                     last_patch = tc.args.get("patch_text", "")
                 if tc.name == "run_tests" and not result.get("passed", True):
                     last_traceback = result.get("traceback", "")
+                    if iterations > 1:
+                        retries += 1
 
                 tool_results.append(
                     genai_types.Part(
@@ -324,6 +341,10 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
             )
             openai_history_append_assistant(oa_history, llm_response)
 
+            tokens_in += getattr(llm_response, "prompt_tokens", 0)
+            tokens_out += getattr(llm_response, "completion_tokens", 0)
+            tool_call_count += len(llm_response.tool_calls)
+
             if not llm_response.has_tool_calls:
                 final_answer = llm_response.text
                 logger.info("Agent produced final answer after %d iterations.", iterations)
@@ -336,6 +357,8 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
                     last_patch = tc.args.get("patch_text", "")
                 if tc.name == "run_tests" and not result.get("passed", True):
                     last_traceback = result.get("traceback", "")
+                    if iterations > 1:
+                        retries += 1
                 results.append(result)
 
             openai_history_append_tool_results(oa_history, llm_response.tool_calls, results)
@@ -350,6 +373,11 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
         last_traceback=last_traceback,
         iterations=iterations,
         ctx=ctx,
+        start_time=start_time,
+        tokens_in=tokens_in,
+        tokens_out=tokens_out,
+        tool_call_count=tool_call_count,
+        retries=retries,
     )
 
 
@@ -361,11 +389,18 @@ def _parse_final_answer(
     last_traceback: str,
     iterations: int,
     ctx: AgentContext,
+    start_time: float,
+    tokens_in: int = 0,
+    tokens_out: int = 0,
+    tool_call_count: int = 0,
+    retries: int = 0,
 ) -> AgentResult:
     """
     Extract structured fields from the model's final text response.
     Falls back to safe defaults if the model didn't use the expected format.
     """
+    wall_time = max(0.0, time.monotonic() - start_time)
+
     # Try to extract labelled sections
     def _extract(label: str) -> str:
         for line in text.splitlines():
@@ -390,6 +425,24 @@ def _parse_final_answer(
     else:
         tests_failed = ctx.failing_tests
 
+    if text == "Max retries exceeded.":
+        status = "max_retries_exceeded"
+    elif success:
+        status = "resolved"
+    else:
+        status = "unresolved"
+
+    metrics = {
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+        "total_tokens": tokens_in + tokens_out,
+        "tool_call_count": tool_call_count,
+        "iterations": iterations,
+        "retries": retries,
+        "wall_time": round(wall_time, 2),
+        "status": status,
+    }
+
     return AgentResult(
         success=success,
         patch=last_patch,
@@ -400,4 +453,5 @@ def _parse_final_answer(
         iterations=iterations,
         final_traceback=last_traceback,
         confidence=confidence if success else "low",
+        metrics=metrics,
     )

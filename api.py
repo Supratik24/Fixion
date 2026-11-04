@@ -2,15 +2,15 @@ import logging
 import queue
 import threading
 import uuid
-from typing import Dict, Any, Generator
+from typing import Any
 
-from fastapi import FastAPI, BackgroundTasks, Request
-from fastapi.responses import StreamingResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from agent.loop import AgentContext, run_agent, AgentResult
+from agent.loop import AgentContext, AgentResult, run_agent
 
 app = FastAPI(title="Fixion Web API")
 
@@ -30,7 +30,7 @@ def read_index():
     return FileResponse("static/index.html")
 
 # In-memory job tracking
-jobs: Dict[str, Dict[str, Any]] = {}
+jobs: dict[str, dict[str, Any]] = {}
 
 
 class JobLogHandler(logging.Handler):
@@ -52,9 +52,17 @@ class FixRequest(BaseModel):
     repo_url: str
     issue_text: str
     test_path: str = ""
+    no_symbol_graph: bool = False
+    no_semantic_search: bool = False
 
-def _setup_fix_run(repo_url: str, issue_text: str, test_path: str, log_queue: queue.Queue) -> AgentContext:
-    from config import settings
+def _setup_fix_run(
+    repo_url: str,
+    issue_text: str,
+    test_path: str,
+    log_queue: queue.Queue,
+    no_symbol_graph: bool = False,
+    no_semantic_search: bool = False,
+) -> AgentContext:
     from ingest.ast_parser import parse_repo
     from ingest.clone import clone_repo
     from ingest.embed_index import EmbedIndex
@@ -65,16 +73,27 @@ def _setup_fix_run(repo_url: str, issue_text: str, test_path: str, log_queue: qu
     clone_result = clone_repo(repo_url)
     log_queue.put(f"✅ Cloned to {clone_result.local_path} @ {clone_result.head_sha[:8]}")
     
-    log_queue.put(f"🔍 Parsing and indexing...")
+    log_queue.put("🔍 Parsing repository AST...")
     chunks = parse_repo(clone_result.local_path)
-    sg = build_symbol_graph(chunks)
-    embed_idx = EmbedIndex.build(chunks, repo_url, clone_result.head_sha)
-    log_queue.put(f"✅ Indexed {len(chunks)} code chunks")
+
+    if not no_symbol_graph:
+        sg = build_symbol_graph(chunks)
+        log_queue.put("✅ Built symbol call graph")
+    else:
+        sg = None
+        log_queue.put("⚠️ Symbol graph disabled for ablation")
+
+    if not no_semantic_search:
+        embed_idx = EmbedIndex.build(chunks, repo_url, clone_result.head_sha)
+        log_queue.put(f"✅ Indexed {len(chunks)} code chunks")
+    else:
+        embed_idx = None
+        log_queue.put("⚠️ Semantic search disabled for ablation")
     
     sandbox = DockerSandbox()
-    log_queue.put(f"🐳 Ensuring Docker sandbox image exists...")
+    log_queue.put("🐳 Ensuring Docker sandbox image exists...")
     sandbox.build_image()
-    log_queue.put(f"✅ Sandbox ready")
+    log_queue.put("✅ Sandbox ready")
     
     failing_tests = [test_path] if test_path else []
     
@@ -86,6 +105,8 @@ def _setup_fix_run(repo_url: str, issue_text: str, test_path: str, log_queue: qu
         embed_index=embed_idx,
         symbol_graph=sg,
         sandbox=sandbox,
+        use_symbol_graph=not no_symbol_graph,
+        use_semantic_search=not no_semantic_search,
     )
 
 def run_job_sync(job_id: str, req: FixRequest, log_queue: queue.Queue):
@@ -102,10 +123,12 @@ def run_job_sync(job_id: str, req: FixRequest, log_queue: queue.Queue):
             repo_url=req.repo_url,
             issue_text=req.issue_text,
             test_path=req.test_path,
-            log_queue=log_queue
+            log_queue=log_queue,
+            no_symbol_graph=req.no_symbol_graph,
+            no_semantic_search=req.no_semantic_search,
         )
         
-        log_queue.put(f"🤖 Starting Agent Loop...")
+        log_queue.put("🤖 Starting Agent Loop...")
         result: AgentResult = run_agent(ctx)
         
         # Save result
@@ -117,6 +140,7 @@ def run_job_sync(job_id: str, req: FixRequest, log_queue: queue.Queue):
             "fix_explanation": result.fix_explanation,
             "tests_passed": result.tests_passed,
             "tests_failed": result.tests_failed,
+            "metrics": result.metrics,
         }
         log_queue.put(f"✅ Job Finished! Success: {result.success}")
         
@@ -178,14 +202,14 @@ async def stream_logs(job_id: str, request: Request):
                 break
                 
             if jobs.get(job_id, {}).get("status") == "cancelled":
-                yield f"data: ⚠️ Job cancelled by user.\n\n"
-                yield f"data: [DONE]\n\n"
+                yield "data: ⚠️ Job cancelled by user.\n\n"
+                yield "data: [DONE]\n\n"
                 break
                 
             try:
                 msg = log_queue.get_nowait()
                 if msg == "EOF":
-                    yield f"data: [DONE]\n\n"
+                    yield "data: [DONE]\n\n"
                     break
                 safe_msg = msg.replace("\n", "\\n")
                 yield f"data: {safe_msg}\n\n"
@@ -200,10 +224,13 @@ async def stream_logs(job_id: str, request: Request):
 async def get_result(job_id: str):
     if job_id not in jobs:
         return {"error": "Job not found"}
+    result_data = jobs[job_id]["result"]
+    metrics_data = result_data.get("metrics") if isinstance(result_data, dict) else None
     return {
         "status": jobs[job_id]["status"],
-        "result": jobs[job_id]["result"],
-        "error": jobs[job_id]["error"]
+        "result": result_data,
+        "metrics": metrics_data,
+        "error": jobs[job_id]["error"],
     }
 
 

@@ -34,6 +34,8 @@ class Settings(BaseSettings):
 
     # ── Agent loop ────────────────────────────────────────────────────────────
     max_retries: int = 5
+    use_symbol_graph: bool = True
+    use_semantic_search: bool = True
 
     # ── Sandbox ───────────────────────────────────────────────────────────────
     sandbox_image: str = "fixion-sandbox:latest"

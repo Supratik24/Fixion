@@ -42,9 +42,17 @@ class ToolCall:
 
 
 class LLMResponse:
-    def __init__(self, text: str, tool_calls: list[ToolCall]):
+    def __init__(
+        self,
+        text: str,
+        tool_calls: list[ToolCall],
+        prompt_tokens: int = 0,
+        completion_tokens: int = 0,
+    ):
         self.text = text
         self.tool_calls = tool_calls
+        self.prompt_tokens = prompt_tokens
+        self.completion_tokens = completion_tokens
 
     @property
     def has_tool_calls(self) -> bool:
@@ -114,7 +122,19 @@ def _call_gemini(
         if part.text:
             text_parts.append(part.text)
 
-    return LLMResponse(text=" ".join(text_parts), tool_calls=tool_calls), content
+    usage = getattr(response, "usage_metadata", None)
+    prompt_tokens = getattr(usage, "prompt_token_count", 0) or 0
+    completion_tokens = getattr(usage, "candidates_token_count", 0) or 0
+
+    return (
+        LLMResponse(
+            text=" ".join(text_parts),
+            tool_calls=tool_calls,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        ),
+        content,
+    )
 
 
 def _call_openai_compat(
@@ -128,10 +148,10 @@ def _call_openai_compat(
     """Call via OpenAI-compatible API (Groq or OpenRouter)."""
     try:
         from openai import OpenAI
-    except ImportError:
+    except ImportError as err:
         raise RuntimeError(
             "openai package not installed. Run: pip install openai"
-        )
+        ) from err
 
     client = OpenAI(api_key=api_key, base_url=base_url)
 
@@ -171,7 +191,16 @@ def _call_openai_compat(
                 call_id=tc.id,
             ))
 
-    return LLMResponse(text=msg.content or "", tool_calls=tool_calls)
+    usage = getattr(response, "usage", None)
+    prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+    completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+
+    return LLMResponse(
+        text=msg.content or "",
+        tool_calls=tool_calls,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+    )
 
 
 # ── Tool schema converters ─────────────────────────────────────────────────────
@@ -212,9 +241,9 @@ def openai_history_append_assistant(history: list[dict], response: LLMResponse, 
 
 def openai_history_append_tool_results(history: list[dict], tool_calls: list[ToolCall], results: list[Any]) -> None:
     """Append tool results to OpenAI-format history."""
-    for tc, result in zip(tool_calls, results):
+    for tc, result in zip(tool_calls, results, strict=False):
         history.append({
             "role": "tool",
-            "tool_call_id": tc.call_id or f"call_0",
+            "tool_call_id": tc.call_id or "call_0",
             "content": json.dumps(result, ensure_ascii=False),
         })

@@ -20,7 +20,6 @@ Usage examples:
 
 from __future__ import annotations
 
-import json
 import logging
 import sys
 from pathlib import Path
@@ -29,6 +28,7 @@ import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.table import Table
 
 console = Console()
 
@@ -68,12 +68,26 @@ def main(debug: bool) -> None:
     type=int,
     help="Override the max patch-fix-test iterations.",
 )
+@click.option(
+    "--no-symbol-graph",
+    is_flag=True,
+    default=False,
+    help="Disable symbol graph construction and navigation tools (ablation).",
+)
+@click.option(
+    "--no-semantic-search",
+    is_flag=True,
+    default=False,
+    help="Disable semantic vector search (ablation).",
+)
 def fix(
     repo: str,
     issue: str,
     failing_tests: tuple[str, ...],
     output: str | None,
     max_retries: int | None,
+    no_symbol_graph: bool,
+    no_semantic_search: bool,
 ) -> None:
     """Reproduce, localize, patch, and verify a bug in a GitHub repository."""
     from agent.loop import AgentContext, run_agent
@@ -91,12 +105,24 @@ def fix(
 
     console.print(f"[OK] Cloned to [dim]{clone_result.local_path}[/] @ [cyan]{clone_result.head_sha[:8]}[/]")
 
-    with console.status("[bold green]Parsing and indexing…"):
+    with console.status("[bold green]Parsing repository AST…"):
         chunks = parse_repo(clone_result.local_path)
-        sg = build_symbol_graph(chunks)
-        embed_idx = EmbedIndex.build(chunks, repo, clone_result.head_sha)
 
-    console.print(f"[OK] Indexed [cyan]{len(chunks)}[/] code chunks")
+    if not no_symbol_graph:
+        with console.status("[bold green]Building symbol graph…"):
+            sg = build_symbol_graph(chunks)
+        console.print("[OK] Symbol graph built")
+    else:
+        sg = None
+        console.print("[yellow]! Symbol graph disabled for ablation[/]")
+
+    if not no_semantic_search:
+        with console.status("[bold green]Indexing embeddings in LanceDB…"):
+            embed_idx = EmbedIndex.build(chunks, repo, clone_result.head_sha)
+        console.print(f"[OK] Indexed [cyan]{len(chunks)}[/] code chunks")
+    else:
+        embed_idx = None
+        console.print("[yellow]! Semantic search disabled for ablation[/]")
 
     with console.status("[bold green]Building sandbox…"):
         sandbox = DockerSandbox()
@@ -113,6 +139,8 @@ def fix(
         symbol_graph=sg,
         sandbox=sandbox,
         max_retries=max_retries or settings.max_retries,
+        use_symbol_graph=not no_symbol_graph,
+        use_semantic_search=not no_semantic_search,
     )
 
     console.print("\n[bold]Starting agent loop…[/]\n")
@@ -140,6 +168,28 @@ def fix(
     if result.tests_failed:
         console.print(f"[red]Still failing:[/] {', '.join(result.tests_failed[:5])}")
 
+    # Metrics Table
+    m = result.metrics or {}
+    table = Table(title="Fixion Run Metrics", show_header=True, header_style="bold cyan")
+    table.add_column("Tokens (In / Out)", justify="center")
+    table.add_column("Tool Calls", justify="center")
+    table.add_column("Iterations", justify="center")
+    table.add_column("Retries", justify="center")
+    table.add_column("Wall Time", justify="center")
+    table.add_column("Status", justify="center")
+
+    tok_str = f"{m.get('tokens_in', 0):,} / {m.get('tokens_out', 0):,}"
+    status_label = m.get("status", "resolved" if result.success else "unresolved")
+    table.add_row(
+        tok_str,
+        str(m.get("tool_call_count", 0)),
+        str(m.get("iterations", result.iterations)),
+        str(m.get("retries", 0)),
+        f"{m.get('wall_time', 0.0):.2f}s",
+        status_label,
+    )
+    console.print("\n", table)
+
     sys.exit(0 if result.success else 1)
 
 
@@ -160,7 +210,7 @@ def index(repo: str) -> None:
     with console.status("Parsing…"):
         chunks = parse_repo(clone_result.local_path)
     with console.status("Building symbol graph…"):
-        sg = build_symbol_graph(chunks)
+        build_symbol_graph(chunks)
     with console.status("Embedding and indexing…"):
         EmbedIndex.build(chunks, repo, clone_result.head_sha)
 
@@ -190,8 +240,20 @@ def build_sandbox() -> None:
 @click.option("--instance-id", default=None, help="Evaluate a single specific instance.")
 @click.option("--output-dir", default="eval_results", show_default=True)
 @click.option("--summary-file", default="eval_summary.json", show_default=True)
+@click.option("--run-id", default=None, help="Identifier for saving to results/<run_id>.json and .md.")
+@click.option("--no-symbol-graph", is_flag=True, default=False, help="Disable symbol graph (ablation).")
+@click.option("--no-semantic-search", is_flag=True, default=False, help="Disable semantic search (ablation).")
 @click.pass_context
-def eval(ctx: click.Context, n: int, instance_id: str | None, output_dir: str, summary_file: str) -> None:
+def eval(
+    ctx: click.Context,
+    n: int,
+    instance_id: str | None,
+    output_dir: str,
+    summary_file: str,
+    run_id: str | None,
+    no_symbol_graph: bool,
+    no_semantic_search: bool,
+) -> None:
     """Run Fixion against SWE-bench Lite and report resolve-rate."""
     from eval.swebench_harness import main as eval_main
 
@@ -202,6 +264,9 @@ def eval(ctx: click.Context, n: int, instance_id: str | None, output_dir: str, s
         split="test",
         output_dir=output_dir,
         summary_file=summary_file,
+        run_id=run_id,
+        no_symbol_graph=no_symbol_graph,
+        no_semantic_search=no_semantic_search,
     )
 
 

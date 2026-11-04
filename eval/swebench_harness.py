@@ -13,10 +13,7 @@ Each instance has:
   - PASS_TO_PASS: tests that should remain passing
 
 Usage:
-  python -m eval.swebench_harness --n 10 --output results.json
-
-Or run a single instance:
-  python -m eval.swebench_harness --instance-id django__django-12345
+  python -m eval.swebench_harness --n 10 --output-dir eval_results
 """
 
 from __future__ import annotations
@@ -31,6 +28,7 @@ import click
 from datasets import load_dataset
 
 from agent.loop import AgentContext, AgentResult, run_agent
+from config import settings
 from eval.metrics import EvalMetrics, IssueMetrics
 from ingest.ast_parser import parse_repo
 from ingest.clone import clone_repo, reset_to_head
@@ -69,6 +67,9 @@ def _run_single_instance(
     instance: dict[str, Any],
     sandbox: DockerSandbox,
     output_dir: Path,
+    *,
+    no_symbol_graph: bool = False,
+    no_semantic_search: bool = False,
 ) -> IssueMetrics:
     """Process one SWE-bench instance end-to-end."""
     instance_id = instance["instance_id"]
@@ -86,8 +87,12 @@ def _run_single_instance(
 
         # 2. Index
         chunks = parse_repo(clone_result.local_path)
-        sg = build_symbol_graph(chunks)
-        embed_idx = EmbedIndex.build(chunks, repo_url, clone_result.head_sha)
+        sg = build_symbol_graph(chunks) if not no_symbol_graph else None
+        embed_idx = (
+            EmbedIndex.build(chunks, repo_url, clone_result.head_sha)
+            if not no_semantic_search
+            else None
+        )
 
         # 3. Run agent
         ctx = AgentContext(
@@ -98,6 +103,8 @@ def _run_single_instance(
             embed_index=embed_idx,
             symbol_graph=sg,
             sandbox=sandbox,
+            use_symbol_graph=not no_symbol_graph,
+            use_semantic_search=not no_semantic_search,
         )
         result: AgentResult = run_agent(ctx)
 
@@ -115,6 +122,7 @@ def _run_single_instance(
                     "tests_passed": result.tests_passed,
                     "tests_failed": result.tests_failed,
                     "confidence": result.confidence,
+                    "metrics": result.metrics,
                 },
                 indent=2,
             ),
@@ -125,13 +133,22 @@ def _run_single_instance(
         reset_to_head(clone_result.local_path)
 
         duration = time.monotonic() - start
+        m = result.metrics or {}
         return IssueMetrics(
             instance_id=instance_id,
             resolved=result.success,
             patch_valid=bool(result.patch),
             iterations=result.iterations,
-            correct_localization=result.success,  # proxy: resolved → correct localization
+            correct_localization=result.success,
             duration_seconds=duration,
+            tokens_in=m.get("tokens_in", 0),
+            tokens_out=m.get("tokens_out", 0),
+            tool_call_count=m.get("tool_call_count", 0),
+            retries=m.get("retries", 0),
+            wall_time=m.get("wall_time", duration),
+            status=m.get("status", "resolved" if result.success else "unresolved"),
+            backend=settings.backend,
+            model=settings.model,
         )
 
     except Exception as exc:
@@ -144,6 +161,10 @@ def _run_single_instance(
             iterations=0,
             correct_localization=False,
             duration_seconds=duration,
+            wall_time=duration,
+            status="error",
+            backend=settings.backend,
+            model=settings.model,
             error=str(exc),
         )
 
@@ -154,12 +175,18 @@ def _run_single_instance(
 @click.option("--split", default="test", show_default=True, help="Dataset split to use.")
 @click.option("--output-dir", default="eval_results", show_default=True, help="Directory for per-instance JSON outputs.")
 @click.option("--summary-file", default="eval_summary.json", show_default=True, help="Path for aggregate metrics JSON.")
+@click.option("--run-id", default=None, help="Identifier for saving to results/<run_id>.json and results/<run_id>.md.")
+@click.option("--no-symbol-graph", is_flag=True, default=False, help="Disable symbol graph (ablation).")
+@click.option("--no-semantic-search", is_flag=True, default=False, help="Disable semantic search (ablation).")
 def main(
     n: int | None,
     instance_id: str | None,
     split: str,
     output_dir: str,
     summary_file: str,
+    run_id: str | None,
+    no_symbol_graph: bool,
+    no_semantic_search: bool,
 ) -> None:
     """Run Fixion against SWE-bench Lite and report resolve-rate."""
     logging.basicConfig(level=logging.INFO)
@@ -175,19 +202,60 @@ def main(
 
     metrics = EvalMetrics()
     for inst in instances:
-        m = _run_single_instance(inst, sandbox, out_dir)
+        m = _run_single_instance(
+            inst,
+            sandbox,
+            out_dir,
+            no_symbol_graph=no_symbol_graph,
+            no_semantic_search=no_semantic_search,
+        )
         metrics.add(m)
         logger.info(
-            "[%s] resolved=%s iterations=%d duration=%.1fs",
+            "[%s] status=%s iters=%d tokens_in=%d tokens_out=%d time=%.1fs",
             m.instance_id,
-            m.resolved,
+            m.status,
             m.iterations,
-            m.duration_seconds,
+            m.tokens_in,
+            m.tokens_out,
+            m.wall_time,
         )
 
     metrics.print_report()
 
-    # Save summary
+    # Determine run identifier
+    resolved_run_id = run_id or f"run_{settings.backend}_{int(time.time())}"
+    results_dir = Path("results")
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    # 1. Save results/<run_id>.json
+    run_json_path = results_dir / f"{resolved_run_id}.json"
+    run_payload = {
+        "run_id": resolved_run_id,
+        "backend": settings.backend,
+        "model": settings.model,
+        "no_symbol_graph": no_symbol_graph,
+        "no_semantic_search": no_semantic_search,
+        "summary": metrics.summary(),
+        "issues": [x.to_dict() for x in metrics.issues],
+    }
+    run_json_path.write_text(json.dumps(run_payload, indent=2), encoding="utf-8")
+    logger.info("Run results saved to %s", run_json_path)
+
+    # 2. Save results/<run_id>.md with markdown table
+    md_table = metrics.markdown_table(backend=settings.backend)
+    run_md_path = results_dir / f"{resolved_run_id}.md"
+    md_content = (
+        f"# Evaluation Run: {resolved_run_id}\n\n"
+        f"- **Backend:** `{settings.backend}`\n"
+        f"- **Model:** `{settings.model}`\n"
+        f"- **Ablations:** no_symbol_graph={no_symbol_graph}, no_semantic_search={no_semantic_search}\n\n"
+        f"## Summary Table\n\n"
+        f"{md_table}\n"
+    )
+    run_md_path.write_text(md_content, encoding="utf-8")
+    logger.info("Markdown table saved to %s", run_md_path)
+
+    # 3. Save summary_file for backward compatibility
     Path(summary_file).write_text(
         json.dumps(metrics.summary(), indent=2), encoding="utf-8"
     )
