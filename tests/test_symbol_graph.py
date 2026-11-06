@@ -9,7 +9,6 @@ import pytest
 from ingest.ast_parser import CodeChunk
 from ingest.symbol_graph import SymbolGraph, build_symbol_graph
 
-
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
 def _make_chunk(

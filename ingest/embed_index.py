@@ -22,6 +22,7 @@ from google.genai import types as genai_types
 
 from config import settings
 from ingest.ast_parser import CodeChunk
+from ingest.bm25 import BM25Index
 
 logger = logging.getLogger(__name__)
 
@@ -85,9 +86,10 @@ class EmbedIndex:
         results = index.search("division by zero in stats", top_k=5)
     """
 
-    def __init__(self, table: Any, table_name: str) -> None:
+    def __init__(self, table: Any, table_name: str, bm25: BM25Index | None = None) -> None:
         self._table = table
         self._table_name = table_name
+        self.bm25 = bm25
 
     # ── Build ──────────────────────────────────────────────────────────────────
 
@@ -98,14 +100,15 @@ class EmbedIndex:
         repo_url: str,
         head_sha: str,
         index_dir: Path | None = None,
-    ) -> "EmbedIndex":
+    ) -> EmbedIndex:
         """
-        Embed *chunks* and persist them in LanceDB.
+        Embed *chunks* and persist them in LanceDB, and initialize a BM25 lexical index.
 
         If an index for (repo_url, head_sha) already exists, it is reused
         without re-embedding (fast path). Force a rebuild by deleting the
         index directory.
         """
+        bm25_idx = BM25Index.build(chunks)
         index_dir = index_dir or settings.index_dir
         index_dir.mkdir(parents=True, exist_ok=True)
 
@@ -114,7 +117,7 @@ class EmbedIndex:
 
         if tname in db.table_names():
             logger.info("Reusing existing index '%s' (cached)", tname)
-            return cls(db.open_table(tname), tname)
+            return cls(db.open_table(tname), tname, bm25=bm25_idx)
 
         logger.info("Building embedding index for %d chunks…", len(chunks))
         client = _make_client()
@@ -122,8 +125,9 @@ class EmbedIndex:
         rows: list[dict[str, Any]] = []
         texts = [_chunk_to_embed_text(c) for c in chunks]
 
-        from google.genai.errors import ClientError
         import time
+
+        from google.genai.errors import ClientError
         # Embed in batches
         vectors: list[list[float]] = []
         for i in range(0, len(texts), _EMBED_BATCH_SIZE):
@@ -145,7 +149,7 @@ class EmbedIndex:
             if i + _EMBED_BATCH_SIZE < len(texts):
                 time.sleep(5)
 
-        for chunk, vec in zip(chunks, vectors):
+        for chunk, vec in zip(chunks, vectors, strict=False):
             chunk_id = hashlib.sha1(
                 f"{chunk.file_path}:{chunk.symbol_name}:{chunk.start_line}".encode()
             ).hexdigest()
@@ -166,17 +170,14 @@ class EmbedIndex:
 
         table = db.create_table(tname, data=rows, schema=_SCHEMA)
         logger.info("Index '%s' created with %d entries.", tname, len(rows))
-        return cls(table, tname)
+        return cls(table, tname, bm25=bm25_idx)
 
     # ── Search ─────────────────────────────────────────────────────────────────
 
-    def search(self, query: str, top_k: int = 10) -> list[dict[str, Any]]:
-        """
-        Return the top-k chunks most semantically similar to *query*.
-
-        Each result is a dict with all chunk metadata fields plus a ``_distance``
-        float (lower = more similar for L2; for cosine, lower = more similar).
-        """
+    def search_vector(self, query: str, top_k: int = 10) -> list[dict[str, Any]]:
+        """Dense vector search using Gemini text-embedding."""
+        if self._table is None:
+            return []
         client = _make_client()
         query_vec = _embed_batch(client, [query])[0]
 
@@ -187,8 +188,67 @@ class EmbedIndex:
         )
         return results
 
+    def search_hybrid(
+        self,
+        query: str,
+        top_k: int = 10,
+        rrf_k: int = 60,
+    ) -> list[dict[str, Any]]:
+        """
+        Perform hybrid retrieval combining BM25 keyword matching and vector search
+        via Reciprocal Rank Fusion (RRF).
+        """
+        vec_results: list[dict[str, Any]] = []
+        try:
+            vec_results = self.search_vector(query, top_k=top_k * 2)
+        except Exception as err:
+            logger.warning("Vector search error in hybrid retrieval: %s", err)
+
+        bm25_results: list[dict[str, Any]] = []
+        if self.bm25 is not None:
+            bm25_results = self.bm25.search(query, top_k=top_k * 2)
+
+        if not vec_results:
+            return bm25_results[:top_k]
+        if not bm25_results:
+            return vec_results[:top_k]
+
+        scores: dict[tuple[str, str, int], float] = {}
+        items: dict[tuple[str, str, int], dict[str, Any]] = {}
+
+        for rank, r in enumerate(vec_results, start=1):
+            k = (r["file_path"], r["symbol_name"], int(r["start_line"]))
+            scores[k] = scores.get(k, 0.0) + 1.0 / (rrf_k + rank)
+            if k not in items:
+                items[k] = dict(r)
+
+        for rank, r in enumerate(bm25_results, start=1):
+            k = (r["file_path"], r["symbol_name"], int(r["start_line"]))
+            scores[k] = scores.get(k, 0.0) + 1.0 / (rrf_k + rank)
+            if k not in items:
+                items[k] = dict(r)
+
+        sorted_keys = sorted(scores.keys(), key=lambda key: scores[key], reverse=True)
+
+        merged: list[dict[str, Any]] = []
+        for k in sorted_keys[:top_k]:
+            item = items[k]
+            item["rrf_score"] = round(scores[k], 5)
+            merged.append(item)
+
+        return merged
+
+    def search(self, query: str, top_k: int = 10, hybrid: bool = True) -> list[dict[str, Any]]:
+        """
+        Return the top-k chunks matching *query*.
+        Defaults to hybrid retrieval (BM25 + Vector + RRF) when BM25 is available.
+        """
+        if hybrid and self.bm25 is not None:
+            return self.search_hybrid(query, top_k=top_k)
+        return self.search_vector(query, top_k=top_k)
+
     @classmethod
-    def load(cls, repo_url: str, head_sha: str, index_dir: Path | None = None) -> "EmbedIndex":
+    def load(cls, repo_url: str, head_sha: str, index_dir: Path | None = None) -> EmbedIndex:
         """Load an existing index without re-building."""
         index_dir = index_dir or settings.index_dir
         db = lancedb.connect(str(index_dir))

@@ -189,7 +189,7 @@ class SymbolGraph:
         logger.info("Symbol graph saved to %s", path)
 
     @classmethod
-    def load(cls, path: Path) -> "SymbolGraph":
+    def load(cls, path: Path) -> SymbolGraph:
         """Deserialize a symbol graph from a JSON file produced by save()."""
         data = json.loads(path.read_text(encoding="utf-8"))
         sg = cls()

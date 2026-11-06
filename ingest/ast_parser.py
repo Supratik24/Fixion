@@ -11,9 +11,9 @@ Chunk hierarchy: File → Class → Function/Method
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator
 
 import tree_sitter_python as tspython
 from tree_sitter import Language, Node, Parser

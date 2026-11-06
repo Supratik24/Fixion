@@ -51,6 +51,7 @@ from agent.tools import search_code as sc_mod
 from config import settings
 from ingest.embed_index import EmbedIndex
 from ingest.symbol_graph import SymbolGraph
+from ingest.traceback_parser import parse_traceback
 from sandbox.docker_runner import DockerSandbox
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,142 @@ class AgentResult:
     metrics: dict[str, Any] = field(default_factory=dict)
 
 
+# ── Reflection & Localization helpers ─────────────────────────────────────────
+
+
+def build_failure_reflection(
+    last_patch: str,
+    traceback_text: str,
+    failed_tests: list[str],
+    repo_root: Path | str | None = None,
+    retry_num: int = 1,
+) -> dict[str, Any]:
+    """
+    Build a structured failure reflection on a failed retry,
+    feeding what was tried, the diff, and the failing assertion instead of the raw log.
+    """
+    parsed = parse_traceback(traceback_text, repo_root=repo_root)
+
+    lines = [
+        f"### ⚠️ Test Execution Failed (Retry #{retry_num})",
+        f"- **Failed Tests**: {', '.join(failed_tests) if failed_tests else 'Unknown'}",
+    ]
+    if parsed.error_type:
+        lines.append(f"- **Error Type**: `{parsed.error_type}`")
+    if parsed.error_message:
+        lines.append(f"- **Error Message**: {parsed.error_message}")
+    if parsed.failing_assertion:
+        lines.append(f"- **Failing Assertion**: `{parsed.failing_assertion}`")
+    if parsed.primary_frame:
+        lines.append(
+            f"- **Failure Location**: `{parsed.primary_frame.file_path}:{parsed.primary_frame.line_number}` in `{parsed.primary_frame.function_name}`"
+        )
+        if parsed.primary_frame.source_line:
+            lines.append(f"- **Failing Code Line**: `{parsed.primary_frame.source_line}`")
+
+    if last_patch:
+        lines.append("\n**Attempted Patch (Diff):**")
+        lines.append(f"```diff\n{last_patch.strip()}\n```")
+
+    lines.append("\n**Reflection Guidance**:")
+    lines.append("The patch applied previously failed the test suite.")
+    lines.append("Do NOT repeat the exact same change. Reflect on why the assertion failed above and fix the logic.")
+
+    reflection_message = "\n".join(lines)
+
+    reflection_dict: dict[str, Any] = {
+        "passed": False,
+        "retry_number": retry_num,
+        "error_type": parsed.error_type,
+        "error_message": parsed.error_message,
+        "failing_assertion": parsed.failing_assertion,
+        "failed_tests": failed_tests,
+        "attempted_patch": last_patch,
+        "failure_reflection": reflection_message,
+    }
+
+    if parsed.primary_frame:
+        reflection_dict["seed_suggestions"] = {
+            "file_path": parsed.primary_frame.file_path,
+            "line_number": parsed.primary_frame.line_number,
+            "function_name": parsed.primary_frame.function_name,
+            "read_file_args": {
+                "file_path": parsed.primary_frame.file_path,
+                "start_line": max(1, parsed.primary_frame.line_number - 15),
+                "end_line": parsed.primary_frame.line_number + 15,
+            },
+            "find_references_args": (
+                {"symbol_name": parsed.primary_frame.function_name}
+                if parsed.primary_frame.function_name and parsed.primary_frame.function_name != "<module>"
+                else None
+            ),
+            "hint": (
+                f"Failure localized to {parsed.primary_frame.file_path}:{parsed.primary_frame.line_number} "
+                f"in {parsed.primary_frame.function_name}. Suggested next steps: call read_file or find_references."
+            ),
+        }
+
+    return reflection_dict
+
+
+def _process_test_result(
+    result: dict[str, Any],
+    last_patch: str,
+    iterations: int,
+    retries: int,
+    ctx: AgentContext,
+) -> tuple[dict[str, Any], str, int]:
+    """
+    Process a run_tests result:
+    - If passed: return as is.
+    - If failed on a retry with an attempted patch: return structured failure reflection (no raw log).
+    - If failed on initial run: attach seed suggestions for localization.
+    Returns: (processed_result, last_traceback, updated_retries)
+    """
+    if result.get("passed", True):
+        return result, "", retries
+
+    raw_tb = result.get("traceback", "") or result.get("stdout_preview", "")
+    if iterations > 1:
+        retries += 1
+
+    if last_patch:
+        # Structured failure reflection instead of raw log
+        processed = build_failure_reflection(
+            last_patch=last_patch,
+            traceback_text=raw_tb,
+            failed_tests=result.get("failed_tests", []),
+            repo_root=ctx.repo_root,
+            retry_num=retries or 1,
+        )
+        return processed, raw_tb, retries
+
+    # Initial failure before any patch is applied
+    processed = dict(result)
+    parsed = parse_traceback(raw_tb, repo_root=ctx.repo_root)
+    if parsed.primary_frame:
+        processed["seed_suggestions"] = {
+            "file_path": parsed.primary_frame.file_path,
+            "line_number": parsed.primary_frame.line_number,
+            "function_name": parsed.primary_frame.function_name,
+            "read_file_args": {
+                "file_path": parsed.primary_frame.file_path,
+                "start_line": max(1, parsed.primary_frame.line_number - 15),
+                "end_line": parsed.primary_frame.line_number + 15,
+            },
+            "find_references_args": (
+                {"symbol_name": parsed.primary_frame.function_name}
+                if parsed.primary_frame.function_name and parsed.primary_frame.function_name != "<module>"
+                else None
+            ),
+            "hint": (
+                f"Failure localized to {parsed.primary_frame.file_path}:{parsed.primary_frame.line_number} "
+                f"in {parsed.primary_frame.function_name}. Suggested next steps: call read_file or find_references."
+            ),
+        }
+    return processed, raw_tb, retries
+
+
 # ── Tool dispatch ──────────────────────────────────────────────────────────────
 
 
@@ -114,6 +251,7 @@ def _dispatch_tool(
             query=tool_args["query"],
             embed_index=ctx.embed_index,
             top_k=min(int(tool_args.get("top_k", 8)), 20),
+            mode=tool_args.get("mode", "hybrid"),
         )
 
     # ── File reading ──
@@ -286,10 +424,10 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
                 result = _dispatch_tool(tc.name, tc.args, ctx)
                 if tc.name == "apply_patch" and result.get("applied"):
                     last_patch = tc.args.get("patch_text", "")
-                if tc.name == "run_tests" and not result.get("passed", True):
-                    last_traceback = result.get("traceback", "")
-                    if iterations > 1:
-                        retries += 1
+                if tc.name == "run_tests":
+                    result, last_traceback, retries = _process_test_result(
+                        result, last_patch, iterations, retries, ctx
+                    )
 
                 tool_results.append(
                     genai_types.Part(
@@ -355,10 +493,10 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
                 result = _dispatch_tool(tc.name, tc.args, ctx)
                 if tc.name == "apply_patch" and result.get("applied"):
                     last_patch = tc.args.get("patch_text", "")
-                if tc.name == "run_tests" and not result.get("passed", True):
-                    last_traceback = result.get("traceback", "")
-                    if iterations > 1:
-                        retries += 1
+                if tc.name == "run_tests":
+                    result, last_traceback, retries = _process_test_result(
+                        result, last_patch, iterations, retries, ctx
+                    )
                 results.append(result)
 
             openai_history_append_tool_results(oa_history, llm_response.tool_calls, results)

@@ -5,13 +5,11 @@ tests/test_ast_parser.py — Unit tests for the tree-sitter AST chunker.
 from __future__ import annotations
 
 import textwrap
-import tempfile
 from pathlib import Path
 
 import pytest
 
-from ingest.ast_parser import CodeChunk, parse_file, parse_repo
-
+from ingest.ast_parser import parse_file, parse_repo
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
