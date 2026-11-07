@@ -45,6 +45,7 @@ from agent.tools import apply_patch as ap_mod
 from agent.tools import find_references as ref_mod
 from agent.tools import git_ops as git_mod
 from agent.tools import read_file as rf_mod
+from agent.tools import reproduce_issue as repro_mod
 from agent.tools import run_linter as lint_mod
 from agent.tools import run_tests as rt_mod
 from agent.tools import search_code as sc_mod
@@ -74,6 +75,10 @@ class AgentContext:
     log_callback: Callable[[str], None] | None = None
     use_symbol_graph: bool = field(default_factory=lambda: settings.use_symbol_graph)
     use_semantic_search: bool = field(default_factory=lambda: settings.use_semantic_search)
+    require_reproduction: bool = True
+    reproduction_confirmed: bool = False
+    reproduction_test_path: str | None = None
+    baseline_passed_tests: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -180,20 +185,50 @@ def _process_test_result(
 ) -> tuple[dict[str, Any], str, int]:
     """
     Process a run_tests result:
-    - If passed: return as is.
-    - If failed on a retry with an attempted patch: return structured failure reflection (no raw log).
-    - If failed on initial run: attach seed suggestions for localization.
+    - If pre-patch run: record baseline passing tests, attach seed suggestions on failure.
+    - If post-patch target test failed: return structured failure reflection (no raw log).
+    - If post-patch target test passed: run full test suite (regression guard).
+      If regressions occur, automatically reject and revert patch.
     Returns: (processed_result, last_traceback, updated_retries)
     """
-    if result.get("passed", True):
-        return result, "", retries
+    # ── Case 1: Pre-patch run (no patch applied yet) ──
+    if not last_patch:
+        if result.get("passed_tests"):
+            ctx.baseline_passed_tests.update(result["passed_tests"])
 
-    raw_tb = result.get("traceback", "") or result.get("stdout_preview", "")
-    if iterations > 1:
-        retries += 1
+        if result.get("passed", False):
+            return result, "", retries
 
-    if last_patch:
-        # Structured failure reflection instead of raw log
+        raw_tb = result.get("traceback", "") or result.get("stdout_preview", "")
+        processed = dict(result)
+        parsed = parse_traceback(raw_tb, repo_root=ctx.repo_root)
+        if parsed.primary_frame:
+            processed["seed_suggestions"] = {
+                "file_path": parsed.primary_frame.file_path,
+                "line_number": parsed.primary_frame.line_number,
+                "function_name": parsed.primary_frame.function_name,
+                "read_file_args": {
+                    "file_path": parsed.primary_frame.file_path,
+                    "start_line": max(1, parsed.primary_frame.line_number - 15),
+                    "end_line": parsed.primary_frame.line_number + 15,
+                },
+                "find_references_args": (
+                    {"symbol_name": parsed.primary_frame.function_name}
+                    if parsed.primary_frame.function_name and parsed.primary_frame.function_name != "<module>"
+                    else None
+                ),
+                "hint": (
+                    f"Failure localized to {parsed.primary_frame.file_path}:{parsed.primary_frame.line_number} "
+                    f"in {parsed.primary_frame.function_name}. Suggested next steps: call read_file or find_references."
+                ),
+            }
+        return processed, raw_tb, retries
+
+    # ── Case 2: Post-patch run, target test failed ──
+    if not result.get("passed", False):
+        raw_tb = result.get("traceback", "") or result.get("stdout_preview", "")
+        if iterations > 1:
+            retries += 1
         processed = build_failure_reflection(
             last_patch=last_patch,
             traceback_text=raw_tb,
@@ -203,30 +238,70 @@ def _process_test_result(
         )
         return processed, raw_tb, retries
 
-    # Initial failure before any patch is applied
-    processed = dict(result)
-    parsed = parse_traceback(raw_tb, repo_root=ctx.repo_root)
-    if parsed.primary_frame:
-        processed["seed_suggestions"] = {
-            "file_path": parsed.primary_frame.file_path,
-            "line_number": parsed.primary_frame.line_number,
-            "function_name": parsed.primary_frame.function_name,
-            "read_file_args": {
-                "file_path": parsed.primary_frame.file_path,
-                "start_line": max(1, parsed.primary_frame.line_number - 15),
-                "end_line": parsed.primary_frame.line_number + 15,
-            },
-            "find_references_args": (
-                {"symbol_name": parsed.primary_frame.function_name}
-                if parsed.primary_frame.function_name and parsed.primary_frame.function_name != "<module>"
-                else None
+    # ── Case 3: Post-patch run, target test PASSED -> REGRESSION GUARD ──
+    logger.info("Target test passed! Running full test suite as regression guard...")
+    full_suite = rt_mod.run_tests(ctx.repo_root, ctx.sandbox, test_paths=None)
+
+    suite_failed = set(full_suite.get("failed_tests", []))
+    regressions = [t for t in ctx.baseline_passed_tests if t in suite_failed]
+
+    if not regressions and not full_suite.get("passed", False):
+        targets = set(ctx.failing_tests)
+        if ctx.reproduction_test_path:
+            targets.add(ctx.reproduction_test_path)
+        other_failed = [t for t in suite_failed if not any(tgt in t for tgt in targets)]
+        if other_failed:
+            regressions = other_failed
+        elif not full_suite.get("passed", False):
+            regressions = list(suite_failed) or ["full_suite_execution_failure"]
+
+    if regressions:
+        logger.warning("Regression detected in full test suite: %s. Reverting patch.", regressions)
+        import subprocess
+
+        # Preserve reproduction test file if present
+        repro_content = None
+        repro_p = None
+        if ctx.reproduction_test_path:
+            p = ctx.repo_root / ctx.reproduction_test_path
+            if p.exists():
+                repro_content = p.read_text(encoding="utf-8")
+                repro_p = p
+
+        subprocess.run(["git", "checkout", "--", "."], cwd=str(ctx.repo_root), capture_output=True)
+
+        if repro_content and repro_p:
+            repro_p.write_text(repro_content, encoding="utf-8")
+
+        rejection_result = {
+            "passed": False,
+            "target_test_passed": True,
+            "regression_detected": True,
+            "regressed_tests": regressions,
+            "error_message": (
+                f"Patch rejected: target test passed, but {len(regressions)} regression(s) "
+                f"detected in full test suite: {', '.join(regressions)}. "
+                "The patch has been automatically reverted. Devise a fix that does NOT break existing tests."
             ),
-            "hint": (
-                f"Failure localized to {parsed.primary_frame.file_path}:{parsed.primary_frame.line_number} "
-                f"in {parsed.primary_frame.function_name}. Suggested next steps: call read_file or find_references."
+            "failed_tests": regressions,
+            "traceback": full_suite.get("traceback", ""),
+            "failure_reflection": (
+                f"### ⚠️ Patch Rejected Due to Regressions\n"
+                f"- **Target Test**: PASSED\n"
+                f"- **Regressed Tests**: {', '.join(regressions)}\n"
+                f"- **Attempted Patch Diff**:\n```diff\n{last_patch.strip()}\n```\n"
+                f"- **Action Required**: The patch fixed the target test but broke previously passing tests. "
+                f"The patch has been reverted. Analyze side effects on the regressed tests and try a more targeted change."
             ),
         }
-    return processed, raw_tb, retries
+        return rejection_result, full_suite.get("traceback", ""), retries + 1
+
+    # Full suite passed cleanly!
+    accepted_result = dict(result)
+    accepted_result["full_suite_passed"] = True
+    accepted_result["passed_tests"] = full_suite.get("passed_tests", [])
+    accepted_result["message"] = "Target tests AND full test suite passed cleanly with no regressions!"
+    return accepted_result, "", retries
 
 
 # ── Tool dispatch ──────────────────────────────────────────────────────────────
@@ -294,10 +369,34 @@ def _dispatch_tool(
     if tool_name == "git_diff":
         return git_mod.git_diff(ctx.repo_root)
 
+    # ── Reproduction tool ──
+    if tool_name == "reproduce_issue":
+        res = repro_mod.reproduce_issue(
+            test_code=tool_args["test_code"],
+            repo_root=ctx.repo_root,
+            sandbox=ctx.sandbox,
+            test_file_path=tool_args.get("test_file_path", "tests/test_reproduce_issue.py"),
+        )
+        if res.get("reproduced"):
+            ctx.reproduction_confirmed = True
+            ctx.reproduction_test_path = res.get("test_file_path")
+            if res.get("test_file_path") and res.get("test_file_path") not in ctx.failing_tests:
+                ctx.failing_tests.append(res["test_file_path"])
+        return res
+
     # ── Patch ops ──
     if tool_name == "validate_patch":
         return ap_mod.validate_patch(tool_args["patch_text"], ctx.repo_root)
     if tool_name == "apply_patch":
+        if getattr(ctx, "require_reproduction", True) and not getattr(ctx, "reproduction_confirmed", False):
+            return {
+                "applied": False,
+                "error": (
+                    "Reproduction guard: You must first write a minimal failing test using "
+                    "'reproduce_issue' and confirm it fails before you can apply a patch."
+                ),
+                "files_changed": [],
+            }
         return ap_mod.apply_patch(tool_args["patch_text"], ctx.repo_root)
 
     # ── Test/lint ──
@@ -316,6 +415,7 @@ def _dispatch_tool(
 def _build_tool_list() -> list[genai_types.Tool]:
     """Build the list of Gemini Tool objects from all module declarations."""
     declarations = [
+        repro_mod.TOOL_DECLARATION,
         sc_mod.TOOL_DECLARATION,
         rf_mod.TOOL_DECLARATION,
         *ref_mod.TOOL_DECLARATIONS,
@@ -357,6 +457,7 @@ def run_agent(ctx: AgentContext) -> AgentResult:
 
     # Tool declarations (raw dicts for all backends)
     raw_declarations = [
+        repro_mod.TOOL_DECLARATION,
         sc_mod.TOOL_DECLARATION,
         rf_mod.TOOL_DECLARATION,
         *ref_mod.TOOL_DECLARATIONS,
@@ -428,6 +529,8 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
                     result, last_traceback, retries = _process_test_result(
                         result, last_patch, iterations, retries, ctx
                     )
+                    if result.get("regression_detected"):
+                        last_patch = ""
 
                 tool_results.append(
                     genai_types.Part(
@@ -497,6 +600,8 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
                     result, last_traceback, retries = _process_test_result(
                         result, last_patch, iterations, retries, ctx
                     )
+                    if result.get("regression_detected"):
+                        last_patch = ""
                 results.append(result)
 
             openai_history_append_tool_results(oa_history, llm_response.tool_calls, results)

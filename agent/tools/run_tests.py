@@ -8,6 +8,8 @@ The agent calls this to:
 
 from __future__ import annotations
 
+import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -16,20 +18,20 @@ from sandbox.docker_runner import DockerSandbox, TestResult
 
 def run_tests(
     repo_path: Path,
-    sandbox: DockerSandbox,
+    sandbox: DockerSandbox | None = None,
     test_paths: list[str] | None = None,
     *,
     extra_args: list[str] | None = None,
 ) -> dict[str, Any]:
     """
-    Run the test suite (or specific tests) inside the sandbox.
+    Run the test suite (or specific tests) inside the sandbox (or local subprocess fallback).
 
     Parameters
     ----------
     repo_path:
         Local path to the repo (with any patches already applied).
     sandbox:
-        DockerSandbox instance to use.
+        DockerSandbox instance to use, or None to fall back to local pytest execution.
     test_paths:
         Specific pytest node IDs to run, e.g.
         ``["tests/test_stats.py::test_division"]``.
@@ -48,6 +50,56 @@ def run_tests(
         - duration_seconds (float)
         - error_message (str) — set if sandbox itself failed
     """
+    if sandbox is None:
+        start_t = time.monotonic()
+        cmd = ["pytest"]
+        if test_paths:
+            cmd.extend(test_paths)
+        if extra_args:
+            cmd.extend(extra_args)
+        cmd.extend(["--tb=short", "-q"])
+        try:
+            res = subprocess.run(
+                cmd,
+                cwd=str(repo_path),
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            dur = time.monotonic() - start_t
+            out = res.stdout + "\n" + res.stderr
+            passed = res.returncode == 0
+            failed_tests: list[str] = []
+            passed_tests: list[str] = []
+            for line in out.splitlines():
+                if " PASSED" in line:
+                    passed_tests.append(line.split()[0])
+                elif " FAILED" in line:
+                    failed_tests.append(line.split()[0])
+            if not failed_tests and not passed:
+                failed_tests = test_paths or ["test_suite"]
+            return {
+                "passed": passed,
+                "exit_code": res.returncode,
+                "traceback": out if not passed else "",
+                "failed_tests": failed_tests,
+                "passed_tests": passed_tests,
+                "duration_seconds": round(dur, 2),
+                "error_message": "",
+                "stdout_preview": out[:2000],
+            }
+        except Exception as err:
+            return {
+                "passed": False,
+                "exit_code": 1,
+                "traceback": "",
+                "failed_tests": test_paths or [],
+                "passed_tests": [],
+                "duration_seconds": 0.0,
+                "error_message": str(err),
+                "stdout_preview": "",
+            }
+
     result: TestResult = sandbox.run_tests(
         repo_path,
         test_paths=test_paths,
