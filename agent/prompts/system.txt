@@ -22,6 +22,7 @@ Your job is to fix bugs in Python repositories. You operate under STRICT iterati
 - `get_file_symbols` — List all functions/classes in a file
 - `validate_patch`   — Check a diff is valid WITHOUT applying it (always before apply_patch)
 - `apply_patch`      — Apply a validated unified diff to the repo (requires confirmed reproduction)
+- `evaluate_candidates` — Test multiple candidate patches in parallel containers, selecting the cleanest, smallest diff
 - `run_linter`       — Run ruff + mypy after a patch
 - `git_blame`        — See who last changed a line
 - `git_log`          — Recent commits to a file
@@ -43,7 +44,7 @@ Your job is to fix bugs in Python repositories. You operate under STRICT iterati
 - Formulate a hypothesis based on the reproduction traceback.
 - Write a unified diff that fixes the root cause without side effects.
 - Call `validate_patch` first — if it fails, fix the diff and retry validate.
-- Call `apply_patch` to apply it.
+- Call `apply_patch` to apply your patch, or `evaluate_candidates` with multiple candidate diffs to test each in an isolated container and automatically select the smallest clean winner.
 
 ### Stage 4 — Target Test
 - Call `run_tests` with the reproduction test / target failing test.

@@ -42,6 +42,7 @@ from agent.llm_client import (
     openai_history_append_tool_results,
 )
 from agent.tools import apply_patch as ap_mod
+from agent.tools import evaluate_candidates as eval_cand_mod
 from agent.tools import find_references as ref_mod
 from agent.tools import git_ops as git_mod
 from agent.tools import read_file as rf_mod
@@ -79,6 +80,7 @@ class AgentContext:
     reproduction_confirmed: bool = False
     reproduction_test_path: str | None = None
     baseline_passed_tests: set[str] = field(default_factory=set)
+    num_candidates: int = field(default_factory=lambda: settings.num_candidates)
 
 
 @dataclass
@@ -384,6 +386,26 @@ def _dispatch_tool(
                 ctx.failing_tests.append(res["test_file_path"])
         return res
 
+    # ── Multi-candidate evaluation ──
+    if tool_name == "evaluate_candidates":
+        if getattr(ctx, "require_reproduction", True) and not getattr(ctx, "reproduction_confirmed", False):
+            return {
+                "winner_found": False,
+                "winner_applied": False,
+                "error": (
+                    "Reproduction guard: You must first write a minimal failing test using "
+                    "'reproduce_issue' and confirm it fails before evaluating candidate patches."
+                ),
+            }
+        return eval_cand_mod.evaluate_candidates(
+            candidates=tool_args["candidates"],
+            repo_root=ctx.repo_root,
+            sandbox=ctx.sandbox,
+            target_tests=ctx.failing_tests or None,
+            baseline_passed_tests=ctx.baseline_passed_tests or None,
+            apply_winner=tool_args.get("apply_winner", True),
+        )
+
     # ── Patch ops ──
     if tool_name == "validate_patch":
         return ap_mod.validate_patch(tool_args["patch_text"], ctx.repo_root)
@@ -416,6 +438,7 @@ def _build_tool_list() -> list[genai_types.Tool]:
     """Build the list of Gemini Tool objects from all module declarations."""
     declarations = [
         repro_mod.TOOL_DECLARATION,
+        eval_cand_mod.TOOL_DECLARATION,
         sc_mod.TOOL_DECLARATION,
         rf_mod.TOOL_DECLARATION,
         *ref_mod.TOOL_DECLARATIONS,
@@ -458,6 +481,7 @@ def run_agent(ctx: AgentContext) -> AgentResult:
     # Tool declarations (raw dicts for all backends)
     raw_declarations = [
         repro_mod.TOOL_DECLARATION,
+        eval_cand_mod.TOOL_DECLARATION,
         sc_mod.TOOL_DECLARATION,
         rf_mod.TOOL_DECLARATION,
         *ref_mod.TOOL_DECLARATIONS,
@@ -525,6 +549,8 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
                 result = _dispatch_tool(tc.name, tc.args, ctx)
                 if tc.name == "apply_patch" and result.get("applied"):
                     last_patch = tc.args.get("patch_text", "")
+                if tc.name == "evaluate_candidates" and result.get("winner_applied"):
+                    last_patch = result.get("winner_patch", "")
                 if tc.name == "run_tests":
                     result, last_traceback, retries = _process_test_result(
                         result, last_patch, iterations, retries, ctx
@@ -596,6 +622,8 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
                 result = _dispatch_tool(tc.name, tc.args, ctx)
                 if tc.name == "apply_patch" and result.get("applied"):
                     last_patch = tc.args.get("patch_text", "")
+                if tc.name == "evaluate_candidates" and result.get("winner_applied"):
+                    last_patch = result.get("winner_patch", "")
                 if tc.name == "run_tests":
                     result, last_traceback, retries = _process_test_result(
                         result, last_patch, iterations, retries, ctx

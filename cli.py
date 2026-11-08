@@ -69,6 +69,13 @@ def main(debug: bool) -> None:
     help="Override the max patch-fix-test iterations.",
 )
 @click.option(
+    "--candidates",
+    "-n",
+    default=None,
+    type=int,
+    help="Number of candidate patches to generate/evaluate (default: 3).",
+)
+@click.option(
     "--no-symbol-graph",
     is_flag=True,
     default=False,
@@ -86,6 +93,7 @@ def fix(
     failing_tests: tuple[str, ...],
     output: str | None,
     max_retries: int | None,
+    candidates: int | None,
     no_symbol_graph: bool,
     no_semantic_search: bool,
 ) -> None:
@@ -139,6 +147,7 @@ def fix(
         symbol_graph=sg,
         sandbox=sandbox,
         max_retries=max_retries or settings.max_retries,
+        num_candidates=candidates or settings.num_candidates,
         use_symbol_graph=not no_symbol_graph,
         use_semantic_search=not no_semantic_search,
     )
