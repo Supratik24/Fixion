@@ -15,7 +15,11 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import lancedb
+try:
+    import lancedb
+except (ImportError, Exception):
+    lancedb = None
+
 import pyarrow as pa
 from google import genai
 from google.genai import types as genai_types
@@ -109,6 +113,10 @@ class EmbedIndex:
         index directory.
         """
         bm25_idx = BM25Index.build(chunks)
+        if lancedb is None:
+            logger.warning("LanceDB is unavailable (native library blocked or missing); falling back to BM25-only index.")
+            return cls(None, "no_table", bm25=bm25_idx)
+
         index_dir = index_dir or settings.index_dir
         index_dir.mkdir(parents=True, exist_ok=True)
 
@@ -250,6 +258,8 @@ class EmbedIndex:
     @classmethod
     def load(cls, repo_url: str, head_sha: str, index_dir: Path | None = None) -> EmbedIndex:
         """Load an existing index without re-building."""
+        if lancedb is None:
+            raise RuntimeError("LanceDB is not available on this system.")
         index_dir = index_dir or settings.index_dir
         db = lancedb.connect(str(index_dir))
         tname = _table_name(repo_url, head_sha)

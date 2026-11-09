@@ -276,6 +276,15 @@
                 </svg>
             </button>
 
+            <!-- Job History Button -->
+            <button id="historyBtn" onclick="openHistoryModal()" title="View Job History" class="glass-pill px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:border-brand-500/40 transition-all">
+                <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7v5l3 2"/>
+                </svg>
+                <span>History</span>
+            </button>
+
             <!-- GitHub Repo Link (No push) -->
             <a href="https://github.com/Supratik24/Fixion" target="_blank" rel="noopener noreferrer" class="glass-pill px-3.5 py-1.5 rounded-lg flex items-center gap-2 text-xs font-semibold text-slate-300 hover:text-white hover:border-brand-500/40 transition-all">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -389,6 +398,27 @@
             <!-- Task Form -->
             <form id="fixForm" class="p-5 flex flex-col gap-4 flex-1">
 
+                <!-- GitHub Issue URL Fetcher -->
+                <div class="flex flex-col gap-1.5 p-3 rounded-xl bg-brand-950/20 border border-brand-500/20">
+                    <label class="text-xs font-semibold text-brand-300 flex items-center justify-between">
+                        <span class="flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5 text-brand-400" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                            </svg>
+                            Fetch from GitHub Issue
+                        </span>
+                        <span class="text-[10px] text-brand-400/80">Auto-fill</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input id="github_issue_url" type="url" placeholder="https://github.com/owner/repo/issues/1" 
+                               class="cyber-input mono flex-1 rounded-lg px-3 py-1.5 text-xs text-slate-200">
+                        <button type="button" id="fetchIssueBtn" onclick="fetchGitHubIssueUrl()" 
+                                class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-xs font-semibold text-white transition-all flex items-center gap-1 shrink-0">
+                            <span id="fetchIssueBtnText">Fetch</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Repository Path Input -->
                 <div class="flex flex-col gap-1.5">
                     <label class="text-xs font-semibold text-slate-300 flex items-center justify-between">
@@ -433,6 +463,19 @@
                     </label>
                     <input id="test_path" type="text" class="cyber-input mono w-full rounded-xl px-3.5 py-2 text-xs text-slate-300" 
                            value="tests/test_math_utils.py::test_divide_by_zero">
+                </div>
+
+                <!-- Workflow Directives -->
+                <div class="pt-2 border-t border-white/[0.06] flex flex-col gap-2">
+                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Workflow Directives</span>
+                    <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" id="human_in_the_loop" class="rounded bg-black/40 border-white/20 text-indigo-600 focus:ring-0">
+                        <span>Human-in-the-Loop (Review patch before apply)</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                        <input type="checkbox" id="create_pr" class="rounded bg-black/40 border-white/20 text-indigo-600 focus:ring-0">
+                        <span>Open GitHub Pull Request upon resolution</span>
+                    </label>
                 </div>
 
                 <!-- Modern Bento Grid: System Specs & Engine Info -->
@@ -615,6 +658,45 @@
                         </div>
                     </div>
 
+                    <!-- Pull Request Link Card (if PR created) -->
+                    <div id="resultPrCard" class="hidden glass-card rounded-2xl p-4 border border-indigo-500/30 bg-indigo-950/20 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <span class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                                </svg>
+                            </span>
+                            <div>
+                                <h4 class="text-xs font-bold text-white">GitHub Pull Request Created</h4>
+                                <p class="text-[11px] text-slate-400">Branch pushed and pull request opened via GitHub API</p>
+                            </div>
+                        </div>
+                        <a id="resultPrLink" href="#" target="_blank" rel="noopener noreferrer" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white flex items-center gap-1.5 transition-all">
+                            <span>Open PR</span>
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                        </a>
+                    </div>
+
+                    <!-- Execution Metrics Overview -->
+                    <div id="resultMetricsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div class="glass-card rounded-xl p-3 border border-white/[0.06]">
+                            <span class="text-[10px] text-slate-500 uppercase font-semibold">Tokens (In / Out)</span>
+                            <p id="metricsTokens" class="font-bold text-indigo-300 mono mt-1">0 / 0</p>
+                        </div>
+                        <div class="glass-card rounded-xl p-3 border border-white/[0.06]">
+                            <span class="text-[10px] text-slate-500 uppercase font-semibold">Wall Clock</span>
+                            <p id="metricsWallTime" class="font-bold text-cyan-300 mono mt-1">0.0s</p>
+                        </div>
+                        <div class="glass-card rounded-xl p-3 border border-white/[0.06]">
+                            <span class="text-[10px] text-slate-500 uppercase font-semibold">Tool Calls</span>
+                            <p id="metricsToolCalls" class="font-bold text-emerald-300 mono mt-1">0</p>
+                        </div>
+                        <div class="glass-card rounded-xl p-3 border border-white/[0.06]">
+                            <span class="text-[10px] text-slate-500 uppercase font-semibold">Iterations</span>
+                            <p id="metricsIterations" class="font-bold text-purple-300 mono mt-1">0</p>
+                        </div>
+                    </div>
+
                     <!-- Diagnosis Grid -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Root Cause Analysis -->
@@ -662,6 +744,76 @@
         </section>
 
     </main>
+
+    <!-- Human-in-the-Loop Approval Modal -->
+    <div id="hitlModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden p-4">
+        <div class="glass-card w-full max-w-3xl rounded-2xl border border-amber-500/40 p-6 shadow-2xl flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                <div class="flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </span>
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            Human-in-the-Loop: Review Proposed Patch
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">AWAITING DECISION</span>
+                        </h3>
+                        <p class="text-xs text-slate-400">The agent formulated a candidate fix. Approve to apply or reject to formulate an alternative.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Patch Diff Box -->
+            <div class="max-h-[380px] overflow-y-auto bg-black/60 rounded-xl border border-white/[0.06] p-4">
+                <pre class="!m-0 !bg-transparent"><code id="hitlPatchCode" class="language-diff mono text-xs leading-relaxed">No patch text</code></pre>
+            </div>
+
+            <!-- Approval Controls -->
+            <div class="flex items-center justify-between pt-2">
+                <span class="text-[11px] text-slate-500 mono">Decision required to resume execution</span>
+                <div class="flex items-center gap-2.5">
+                    <button type="button" id="hitlRejectBtn" onclick="handleHitlDecision(false)" class="px-4 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/40 text-xs font-bold transition-all flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <span>Reject Patch</span>
+                    </button>
+                    <button type="button" id="hitlApproveBtn" onclick="handleHitlDecision(true)" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/20">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span>Approve & Apply</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job History Drawer Modal -->
+    <div id="historyModal" class="fixed inset-0 z-50 flex items-center justify-end bg-black/60 backdrop-blur-sm hidden">
+        <div class="w-full max-w-md h-full bg-slate-950/95 border-l border-white/[0.08] shadow-2xl flex flex-col p-6 overflow-hidden">
+            <div class="flex items-center justify-between border-b border-white/[0.08] pb-4">
+                <div class="flex items-center gap-2">
+                    <svg class="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <circle cx="12" cy="12" r="9" stroke-width="2"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7v5l3 2"/>
+                    </svg>
+                    <h3 class="text-sm font-bold text-white">Execution History</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="loadJobsList()" class="p-1.5 rounded-lg glass-pill text-slate-400 hover:text-white" title="Refresh">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    </button>
+                    <button type="button" onclick="closeHistoryModal()" class="p-1.5 rounded-lg glass-pill text-slate-400 hover:text-white">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- List container -->
+            <div id="historyListContainer" class="flex-1 overflow-y-auto py-4 flex flex-col gap-2.5">
+                <div class="text-xs text-slate-500 text-center py-6">Loading past jobs...</div>
+            </div>
+        </div>
+    </div>
 
     <!-- Interactive Canvas & Application Logic Scripts -->
     <script>
@@ -1189,7 +1341,10 @@
             const payload = {
                 repo_url: document.getElementById('repo_url').value,
                 issue_text: document.getElementById('issue_text').value,
+                issue_url: document.getElementById('github_issue_url').value,
                 test_path: document.getElementById('test_path').value,
+                human_in_the_loop: document.getElementById('human_in_the_loop').checked,
+                create_pr: document.getElementById('create_pr').checked,
             };
 
             try {
@@ -1222,6 +1377,14 @@
                         fetchResolutionResult(currentJobId);
                     } else if (line.trim()) {
                         appendTerminalLog(line);
+                        // Check for HITL proposed patch trigger
+                        if (line.includes('PATCH_PROPOSED:')) {
+                            const patchContent = line.replace('PATCH_PROPOSED:', '').replace(/\\n/g, '\n').trim();
+                            openHitlModal(patchContent);
+                        } else if (line.includes('[HUMAN REVIEW REQUIRED]')) {
+                            // Poll status to fetch patch if not inline
+                            checkHitlStatus(currentJobId);
+                        }
                     }
                 };
 
@@ -1288,6 +1451,26 @@
                     hljs.highlightElement(resultPatchCode);
                 }
 
+                // PR Card & Link
+                const resultPrCard = document.getElementById('resultPrCard');
+                const resultPrLink = document.getElementById('resultPrLink');
+                const prUrl = (data.result && data.result.pr_url) || data.pr_url;
+                if (prUrl) {
+                    resultPrCard.classList.remove('hidden');
+                    resultPrLink.href = prUrl;
+                } else {
+                    resultPrCard.classList.add('hidden');
+                }
+
+                // Metrics display
+                const metrics = data.metrics || (data.result && data.result.metrics);
+                if (metrics) {
+                    document.getElementById('metricsTokens').textContent = `${metrics.tokens_in || 0} / ${metrics.tokens_out || 0}`;
+                    document.getElementById('metricsWallTime').textContent = `${(metrics.wall_time_seconds || 0).toFixed(1)}s`;
+                    document.getElementById('metricsToolCalls').textContent = `${metrics.tool_calls || 0}`;
+                    document.getElementById('metricsIterations').textContent = `${metrics.iterations || 0}`;
+                }
+
                 appendTerminalLog('✅ Resolution report ready. Click "Resolution Diff" tab to inspect the patch.');
             } catch (err) {
                 appendTerminalLog(`❌ Failed to retrieve result: ${err.message}`);
@@ -1320,6 +1503,168 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
+        }
+
+        // ---------------------------------------------------------------------
+        // 11. GITHUB ISSUE IMPORT
+        // ---------------------------------------------------------------------
+        async function fetchGitHubIssueUrl() {
+            const urlInput = document.getElementById('github_issue_url');
+            const url = urlInput.value.trim();
+            if (!url) {
+                alert('Please enter a GitHub Issue URL (e.g. https://github.com/owner/repo/issues/123)');
+                return;
+            }
+            const btn = document.getElementById('fetchIssueBtn');
+            const btnText = document.getElementById('fetchIssueBtnText');
+            btn.disabled = true;
+            btnText.textContent = 'Fetching...';
+
+            try {
+                const res = await fetch('/api/github/issue', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+                if (data.success && data.data) {
+                    const issue = data.data;
+                    if (issue.repo_url) {
+                        const repoGit = issue.repo_url.endsWith('.git') ? issue.repo_url : issue.repo_url + '.git';
+                        document.getElementById('repo_url').value = repoGit;
+                    }
+                    const titleText = issue.title ? `[#${issue.number || ''}] ${issue.title}\n\n` : '';
+                    document.getElementById('issue_text').value = `${titleText}${issue.body || ''}`.trim();
+                    appendTerminalLog(`✅ Successfully imported GitHub Issue #${issue.number || ''}: "${issue.title || ''}"`);
+                } else {
+                    alert(`Failed to fetch GitHub issue: ${data.error || 'Unknown error'}`);
+                    appendTerminalLog(`❌ GitHub Issue fetch error: ${data.error}`);
+                }
+            } catch (err) {
+                alert(`Network error fetching issue: ${err.message}`);
+                appendTerminalLog(`❌ Network error fetching issue: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = 'Fetch';
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 12. HUMAN-IN-THE-LOOP (HITL) APPROVAL FLOW
+        // ---------------------------------------------------------------------
+        const hitlModal = document.getElementById('hitlModal');
+        const hitlPatchCode = document.getElementById('hitlPatchCode');
+
+        function openHitlModal(patchText) {
+            hitlPatchCode.textContent = patchText || 'No patch content available.';
+            hljs.highlightElement(hitlPatchCode);
+            hitlModal.classList.remove('hidden');
+            playSound('error'); // notification chime
+        }
+
+        function closeHitlModal() {
+            hitlModal.classList.add('hidden');
+        }
+
+        async function checkHitlStatus(jobId) {
+            try {
+                const res = await fetch(`/api/job/${jobId}/approval_status`);
+                const data = await res.json();
+                if (data.status === 'pending' || data.patch) {
+                    openHitlModal(data.patch);
+                }
+            } catch (e) {
+                console.error('Failed to check approval status', e);
+            }
+        }
+
+        async function handleHitlDecision(approved) {
+            if (!currentJobId) return;
+            const endpoint = approved ? `/api/job/${currentJobId}/approve` : `/api/job/${currentJobId}/reject`;
+            const approveBtn = document.getElementById('hitlApproveBtn');
+            const rejectBtn = document.getElementById('hitlRejectBtn');
+            approveBtn.disabled = true;
+            rejectBtn.disabled = true;
+
+            try {
+                const res = await fetch(endpoint, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    appendTerminalLog(approved ? '✅ Human Reviewer: Patch APPROVED.' : '❌ Human Reviewer: Patch REJECTED.');
+                    closeHitlModal();
+                } else {
+                    alert(`Decision failed: ${data.error || 'Unknown error'}`);
+                }
+            } catch (err) {
+                alert(`Network error submitting decision: ${err.message}`);
+            } finally {
+                approveBtn.disabled = false;
+                rejectBtn.disabled = false;
+            }
+        }
+
+        // ---------------------------------------------------------------------
+        // 13. EXECUTION HISTORY MODAL
+        // ---------------------------------------------------------------------
+        const historyModal = document.getElementById('historyModal');
+        const historyListContainer = document.getElementById('historyListContainer');
+
+        function openHistoryModal() {
+            historyModal.classList.remove('hidden');
+            loadJobsList();
+        }
+
+        function closeHistoryModal() {
+            historyModal.classList.add('hidden');
+        }
+
+        async function loadJobsList() {
+            historyListContainer.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">Loading jobs...</div>';
+            try {
+                const res = await fetch('/api/jobs');
+                const data = await res.json();
+                const jobs = data.jobs || [];
+                if (jobs.length === 0) {
+                    historyListContainer.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">No previous jobs recorded.</div>';
+                    return;
+                }
+                historyListContainer.innerHTML = '';
+                jobs.forEach(job => {
+                    const card = document.createElement('div');
+                    card.className = 'glass-card rounded-xl p-3.5 border border-white/[0.06] hover:border-indigo-500/40 transition-all flex flex-col gap-2 cursor-pointer';
+
+                    const statusColor = job.status === 'completed' ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' :
+                                       job.status === 'failed' ? 'text-rose-400 bg-rose-500/10 border-rose-500/30' :
+                                       job.status === 'awaiting_approval' ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' :
+                                       'text-indigo-400 bg-indigo-500/10 border-indigo-500/30';
+
+                    const shortRepo = (job.repo_url || 'Unknown').split(/[/\\]/).filter(Boolean).slice(-2).join('/');
+                    const dateStr = job.created_at ? new Date(job.created_at).toLocaleString() : '';
+
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="mono text-[10px] text-slate-400 font-bold">${job.id.slice(0, 8)}</span>
+                            <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${statusColor}">${job.status}</span>
+                        </div>
+                        <div class="text-xs font-semibold text-slate-200 truncate" title="${job.repo_url}">${shortRepo}</div>
+                        <div class="text-[11px] text-slate-400 line-clamp-2">${job.issue_text || 'No description'}</div>
+                        <div class="flex items-center justify-between pt-1 border-t border-white/[0.04] text-[10px] text-slate-500">
+                            <span>${dateStr}</span>
+                            ${job.pr_url ? `<a href="${job.pr_url}" target="_blank" class="text-indigo-400 hover:underline font-semibold" onclick="event.stopPropagation()">PR #🔗</a>` : ''}
+                        </div>
+                    `;
+
+                    card.addEventListener('click', () => {
+                        closeHistoryModal();
+                        fetchResolutionResult(job.id);
+                        switchTab('result');
+                    });
+
+                    historyListContainer.appendChild(card);
+                });
+            } catch (err) {
+                historyListContainer.innerHTML = `<div class="text-xs text-rose-400 text-center py-6">Failed to load jobs: ${err.message}</div>`;
+            }
         }
     </script>
 </body>

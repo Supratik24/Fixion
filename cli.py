@@ -49,8 +49,9 @@ def main(debug: bool) -> None:
 
 
 @main.command()
-@click.option("--repo", required=True, help="GitHub repository URL (HTTPS).")
-@click.option("--issue", required=True, help="Issue description or bug report text.")
+@click.option("--repo", default=None, help="GitHub repository URL (HTTPS). Auto-detected if issue URL is provided.")
+@click.option("--issue", default=None, help="Issue description or GitHub issue URL.")
+@click.option("--issue-url", default=None, help="GitHub issue URL to fetch title and description from.")
 @click.option(
     "--test",
     "failing_tests",
@@ -76,6 +77,14 @@ def main(debug: bool) -> None:
     help="Number of candidate patches to generate/evaluate (default: 3).",
 )
 @click.option(
+    "--pr",
+    "--create-pr",
+    "create_pr",
+    is_flag=True,
+    default=False,
+    help="Open a Pull Request on GitHub upon success.",
+)
+@click.option(
     "--no-symbol-graph",
     is_flag=True,
     default=False,
@@ -88,23 +97,48 @@ def main(debug: bool) -> None:
     help="Disable semantic vector search (ablation).",
 )
 def fix(
-    repo: str,
-    issue: str,
+    repo: str | None,
+    issue: str | None,
+    issue_url: str | None,
     failing_tests: tuple[str, ...],
     output: str | None,
     max_retries: int | None,
     candidates: int | None,
+    create_pr: bool,
     no_symbol_graph: bool,
     no_semantic_search: bool,
 ) -> None:
     """Reproduce, localize, patch, and verify a bug in a GitHub repository."""
     from agent.loop import AgentContext, run_agent
+    from agent.tools import git_ops as git_mod
     from config import settings
     from ingest.ast_parser import parse_repo
     from ingest.clone import clone_repo
     from ingest.embed_index import EmbedIndex
+    from ingest.github_issue import fetch_github_issue
     from ingest.symbol_graph import build_symbol_graph
     from sandbox.docker_runner import DockerSandbox
+
+    # Resolve issue URL if provided directly or passed as --issue
+    target_url = issue_url or (issue if issue and "github.com" in issue and "/issues/" in issue else None)
+    if target_url:
+        console.print(f"[bold cyan]Fetching issue details from GitHub:[/] {target_url}")
+        try:
+            issue_info = fetch_github_issue(target_url)
+            issue = issue_info["issue_text"]
+            if not repo:
+                repo = issue_info["repo_url"]
+            console.print(f"[bold green]✓ Loaded Issue:[/] {issue_info['title']}\n")
+        except Exception as e:
+            console.print(f"[bold red]Failed fetching GitHub issue:[/] {e}")
+            sys.exit(1)
+
+    if not repo:
+        console.print("[bold red]Error:[/] Missing repository. Provide --repo or a valid GitHub --issue URL.")
+        sys.exit(1)
+    if not issue:
+        console.print("[bold red]Error:[/] Missing issue description. Provide --issue or --issue-url.")
+        sys.exit(1)
 
     console.print(Panel.fit(f"[bold cyan]Fixion[/] — fixing: [yellow]{repo}[/]"))
 
@@ -176,6 +210,22 @@ def fix(
         console.print(f"\n[green]Passing tests:[/] {', '.join(result.tests_passed[:5])}")
     if result.tests_failed:
         console.print(f"[red]Still failing:[/] {', '.join(result.tests_failed[:5])}")
+
+    # Pull Request creation if opt-in enabled
+    if create_pr and result.success and result.patch:
+        console.print("\n[bold cyan]Creating GitHub Pull Request…[/]")
+        first_line = issue.splitlines()[0][:60]
+        pr_res = git_mod.create_pull_request(
+            repo_root=clone_result.local_path,
+            title=f"Fix: {first_line}",
+            root_cause=result.root_cause,
+            fix_explanation=result.fix_explanation,
+            repo_url=repo,
+        )
+        if pr_res.get("success") and pr_res.get("pr_url"):
+            console.print(f"[bold green]✓ Pull Request opened:[/] [cyan underline]{pr_res['pr_url']}[/]")
+        else:
+            console.print(f"[yellow]! PR creation note:[/] {pr_res.get('message') or pr_res.get('error')}")
 
     # Metrics Table
     m = result.metrics or {}

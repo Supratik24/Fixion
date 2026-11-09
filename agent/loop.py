@@ -81,6 +81,7 @@ class AgentContext:
     reproduction_test_path: str | None = None
     baseline_passed_tests: set[str] = field(default_factory=set)
     num_candidates: int = field(default_factory=lambda: settings.num_candidates)
+    approval_callback: Callable[[str], bool] | None = None
 
 
 @dataclass
@@ -419,7 +420,30 @@ def _dispatch_tool(
                 ),
                 "files_changed": [],
             }
+        # Human-in-the-loop review guard
+        if getattr(ctx, "approval_callback", None) is not None:
+            approved = ctx.approval_callback(tool_args["patch_text"])
+            if not approved:
+                return {
+                    "applied": False,
+                    "error": (
+                        "Patch rejected by human reviewer. Please formulate an alternative "
+                        "patch hypothesis addressing reviewer concerns."
+                    ),
+                    "files_changed": [],
+                }
         return ap_mod.apply_patch(tool_args["patch_text"], ctx.repo_root)
+
+    # ── Git PR ops ──
+    if tool_name == "create_pull_request":
+        return git_mod.create_pull_request(
+            repo_root=ctx.repo_root,
+            title=tool_args["title"],
+            root_cause=tool_args["root_cause"],
+            fix_explanation=tool_args["fix_explanation"],
+            branch_name=tool_args.get("branch_name"),
+            repo_url=ctx.repo_url,
+        )
 
     # ── Test/lint ──
     if tool_name == "run_linter":
