@@ -16,9 +16,9 @@ Security properties:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
-import os
 import tarfile
 import tempfile
 from dataclasses import dataclass, field
@@ -58,11 +58,11 @@ class TestResult:
 
 def _make_tar(source_dir: Path) -> bytes:
     """Pack *source_dir* into an in-memory tar archive (for docker copy_to)."""
-    buf = tempfile.SpooledTemporaryFile(max_size=128 * 1024 * 1024)
-    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-        tar.add(str(source_dir), arcname=".")
-    buf.seek(0)
-    return buf.read()
+    with tempfile.SpooledTemporaryFile(max_size=128 * 1024 * 1024) as buf:
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            tar.add(str(source_dir), arcname=".")
+        buf.seek(0)
+        return buf.read()
 
 
 def _extract_traceback(output: str) -> str:
@@ -109,10 +109,14 @@ class DockerSandbox:
         image: str | None = None,
         timeout: int | None = None,
         memory: str | None = None,
+        cpus: float | None = None,
+        network: str | None = None,
     ) -> None:
         self._image = image or settings.sandbox_image
         self._timeout = timeout or settings.sandbox_timeout
         self._memory = memory or settings.sandbox_memory
+        self._cpus = cpus or getattr(settings, "sandbox_cpus", 2.0)
+        self._network = network or getattr(settings, "sandbox_network", "none")
         self._client = docker.from_env()
 
     def build_image(self, force: bool = False) -> None:
@@ -189,15 +193,15 @@ class DockerSandbox:
 
         container: Container | None = None
         try:
-            # Phase 1: Start with network enabled (for pip install)
+            # Phase 1: Start container with security sandboxing (non-root, mem/cpu limits, network isolation)
             container = self._client.containers.run(
                 self._image,
                 command=["bash", "-c", run_script],
                 detach=True,
                 remove=False,          # we'll remove manually after log capture
                 mem_limit=self._memory,
-                nano_cpus=2_000_000_000,  # 2 CPUs
-                network_mode="bridge",    # network ON for dep install
+                nano_cpus=int(self._cpus * 1_000_000_000),  # e.g. 2 CPUs limit
+                network_mode=self._network,                  # "none" for security isolation
                 working_dir="/workspace",
                 user="sandbox",
             )
@@ -232,12 +236,10 @@ class DockerSandbox:
             # Parse exit code from marker
             actual_exit_code = exit_code
             if "__EXIT_CODE__" in output:
-                marker_line = [l for l in output.splitlines() if "__EXIT_CODE__" in l]
+                marker_line = [line for line in output.splitlines() if "__EXIT_CODE__" in line]
                 if marker_line:
-                    try:
+                    with contextlib.suppress(ValueError):
                         actual_exit_code = int(marker_line[-1].split("__EXIT_CODE__")[1].strip())
-                    except ValueError:
-                        pass
 
             # Try to grab the JSON report from the container
             json_report: dict = {}
@@ -295,10 +297,8 @@ class DockerSandbox:
             )
         finally:
             if container:
-                try:
+                with contextlib.suppress(Exception):
                     container.remove(force=True)
-                except Exception:
-                    pass
 
     def run_linter(self, repo_path: Path) -> dict[str, Any]:
         """Run ruff + mypy inside the sandbox and return structured findings."""
@@ -326,7 +326,5 @@ class DockerSandbox:
             return {"output": output, "passed": "error" not in output.lower()}
         finally:
             if container:
-                try:
+                with contextlib.suppress(Exception):
                     container.remove(force=True)
-                except Exception:
-                    pass

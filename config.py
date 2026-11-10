@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     sandbox_image: str = "fixion-sandbox:latest"
     sandbox_timeout: int = 300  # seconds
     sandbox_memory: str = "2g"
+    sandbox_cpus: float = 2.0
+    sandbox_network: str = "none"
 
     # ── Storage ───────────────────────────────────────────────────────────────
     index_dir: Path = Path(".fixion_cache/indexes")
