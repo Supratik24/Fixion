@@ -166,11 +166,13 @@ def fix(
         embed_idx = None
         console.print("[yellow]! Semantic search disabled for ablation[/]")
 
-    with console.status("[bold green]Building sandbox…"):
+    with console.status("[bold green]Setting up execution sandbox…"):
         sandbox = DockerSandbox()
-        sandbox.build_image()
-
-    console.print("✓ Sandbox ready")
+        if sandbox.is_docker_available():
+            sandbox.build_image()
+            console.print("✓ Docker sandbox ready")
+        else:
+            console.print("[yellow]! Docker unavailable; running in local sandbox mode[/]")
 
     ctx = AgentContext(
         repo_root=clone_result.local_path,

@@ -17,7 +17,7 @@ import pytest
 try:
     import docker
     _docker_available = True
-    client = docker.from_env()
+    client = docker.from_env(timeout=1)
     client.ping()
 except Exception:
     _docker_available = False

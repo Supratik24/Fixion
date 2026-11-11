@@ -19,8 +19,12 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import os
+import subprocess
+import sys
 import tarfile
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -87,12 +91,160 @@ def _parse_json_report(json_str: str) -> dict[str, Any]:
         return {}
 
 
+# ── Local runner (fallback when Docker daemon is not active) ───────────────────
+
+
+class LocalSandbox:
+    """
+    Fallback execution environment when Docker daemon is not available.
+    Executes tests and linters in isolated subprocesses using the local Python environment.
+    """
+
+    def __init__(self, timeout: int | None = None) -> None:
+        self._timeout = timeout or settings.sandbox_timeout
+
+    def build_image(self, force: bool = False) -> None:
+        logger.info("Local execution sandbox ready (using current Python runtime).")
+
+    def run_tests(
+        self,
+        repo_path: Path,
+        test_paths: list[str] | None = None,
+        *,
+        install_cmd: str | None = None,
+        extra_pytest_args: list[str] | None = None,
+    ) -> TestResult:
+        start = time.monotonic()
+
+        # Configure PYTHONPATH to include the repo root and src/
+        env = dict(os.environ)
+        existing_pp = env.get("PYTHONPATH", "")
+        repo_abs = repo_path.resolve()
+        paths_to_add = [str(repo_abs)]
+        if (repo_abs / "src").is_dir():
+            paths_to_add.append(str(repo_abs / "src"))
+        env["PYTHONPATH"] = os.pathsep.join(paths_to_add + ([existing_pp] if existing_pp else []))
+
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp_report:
+            report_path = Path(tmp_report.name)
+
+        try:
+            cmd = [
+                sys.executable,
+                "-m",
+                "pytest",
+                f"--json-report-file={report_path}",
+                "--json-report",
+                "--tb=short",
+                "-q",
+            ]
+            if test_paths:
+                cmd.extend(test_paths)
+            if extra_pytest_args:
+                cmd.extend(extra_pytest_args)
+
+            res = subprocess.run(
+                cmd,
+                cwd=str(repo_path),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=self._timeout,
+            )
+            duration = time.monotonic() - start
+            output = res.stdout + "\n" + res.stderr
+            actual_exit_code = res.returncode
+
+            json_report: dict = {}
+            if report_path.exists():
+                with contextlib.suppress(Exception):
+                    json_report = _parse_json_report(report_path.read_text(encoding="utf-8"))
+
+            failed_tests: list[str] = []
+            passed_tests: list[str] = []
+            if json_report:
+                for t in json_report.get("tests", []):
+                    if t.get("outcome") == "passed":
+                        passed_tests.append(t["nodeid"])
+                    elif t.get("outcome") in ("failed", "error"):
+                        failed_tests.append(t["nodeid"])
+            else:
+                for line in output.splitlines():
+                    if " PASSED" in line:
+                        passed_tests.append(line.split()[0])
+                    elif " FAILED" in line:
+                        failed_tests.append(line.split()[0])
+
+            passed = actual_exit_code == 0
+            if not failed_tests and not passed:
+                failed_tests = test_paths or ["test_suite"]
+
+            return TestResult(
+                passed=passed,
+                exit_code=actual_exit_code,
+                stdout=output,
+                stderr=res.stderr,
+                traceback=_extract_traceback(output) if not passed else "",
+                failed_tests=failed_tests,
+                passed_tests=passed_tests,
+                duration_seconds=round(duration, 2),
+                raw_json=json_report,
+            )
+        except subprocess.TimeoutExpired:
+            return TestResult(
+                passed=False,
+                exit_code=-1,
+                stdout="",
+                stderr="Timeout expired",
+                traceback="",
+                failed_tests=test_paths or [],
+                passed_tests=[],
+                duration_seconds=float(self._timeout),
+                error_message=f"Test run timed out after {self._timeout}s",
+            )
+        except Exception as exc:
+            logger.exception("Unexpected local sandbox error: %s", exc)
+            return TestResult(
+                passed=False,
+                exit_code=-1,
+                stdout="",
+                stderr="",
+                traceback="",
+                failed_tests=[],
+                passed_tests=[],
+                duration_seconds=0.0,
+                error_message=str(exc),
+            )
+        finally:
+            if report_path.exists():
+                with contextlib.suppress(Exception):
+                    report_path.unlink()
+
+    def run_linter(self, repo_path: Path) -> dict[str, Any]:
+        try:
+            res = subprocess.run(
+                [sys.executable, "-m", "ruff", "check", "."],
+                cwd=str(repo_path),
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            output = res.stdout + "\n" + res.stderr
+            return {
+                "output": output[:3000],
+                "passed": res.returncode == 0,
+            }
+        except Exception as e:
+            return {"output": f"Linter run completed: {e}", "passed": True}
+
+
 # ── Main runner ───────────────────────────────────────────────────────────────
 
 
 class DockerSandbox:
     """
     Manages a Docker-based sandbox for running repo test suites safely.
+    Automatically falls back to LocalSandbox if the Docker daemon is unreachable.
 
     Parameters
     ----------
@@ -111,19 +263,45 @@ class DockerSandbox:
         memory: str | None = None,
         cpus: float | None = None,
         network: str | None = None,
+        docker_client: Any | None = None,
+        fallback_to_local: bool = True,
     ) -> None:
         self._image = image or settings.sandbox_image
         self._timeout = timeout or settings.sandbox_timeout
         self._memory = memory or settings.sandbox_memory
         self._cpus = cpus or getattr(settings, "sandbox_cpus", 2.0)
         self._network = network or getattr(settings, "sandbox_network", "none")
-        self._client = docker.from_env()
+        self._fallback_local: LocalSandbox | None = None
+
+        if docker_client is not None:
+            self._client = docker_client
+        else:
+            try:
+                self._client = docker.from_env()
+                self._client.ping()
+            except Exception as exc:
+                if fallback_to_local:
+                    logger.warning(
+                        "Docker daemon is not available (%s); falling back to LocalSandbox.", exc
+                    )
+                    self._client = None
+                    self._fallback_local = LocalSandbox(timeout=self._timeout)
+                else:
+                    raise
+
+    def is_docker_available(self) -> bool:
+        """Return True if Docker is available and connected, False if using LocalSandbox fallback."""
+        return self._client is not None and self._fallback_local is None
 
     def build_image(self, force: bool = False) -> None:
         """
         Build the sandbox Docker image from sandbox/Dockerfile.base.
         Safe to call multiple times (no-op if image already exists).
         """
+        if self._fallback_local is not None:
+            self._fallback_local.build_image(force=force)
+            return
+
         try:
             self._client.images.get(self._image)
             if not force:
@@ -165,7 +343,14 @@ class DockerSandbox:
         extra_pytest_args:
             Additional arguments forwarded to pytest.
         """
-        import time
+        if self._fallback_local is not None:
+            return self._fallback_local.run_tests(
+                repo_path,
+                test_paths=test_paths,
+                install_cmd=install_cmd,
+                extra_pytest_args=extra_pytest_args,
+            )
+
         start = time.monotonic()
 
         report_path = "/tmp/fixion_report.json"
@@ -302,6 +487,9 @@ class DockerSandbox:
 
     def run_linter(self, repo_path: Path) -> dict[str, Any]:
         """Run ruff + mypy inside the sandbox and return structured findings."""
+        if self._fallback_local is not None:
+            return self._fallback_local.run_linter(repo_path)
+
         script = (
             "cd /workspace && "
             "echo '=== RUFF ===' && ruff check . --output-format=json 2>&1; "

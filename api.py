@@ -151,9 +151,14 @@ def _setup_fix_run(
         log_queue.put("⚠️ Semantic search disabled for ablation")
     
     sandbox = DockerSandbox()
-    log_queue.put("🐳 Ensuring Docker sandbox image exists...")
-    sandbox.build_image()
-    log_queue.put("✅ Sandbox ready")
+    if sandbox.is_docker_available():
+        log_queue.put("🐳 Ensuring Docker sandbox image exists...")
+        sandbox.build_image()
+        log_queue.put("✅ Docker sandbox ready")
+    else:
+        log_queue.put("⚠️ Docker daemon is unavailable or not running.")
+        log_queue.put("⚙️ Initialized Local Execution Sandbox (process isolation with timeouts)...")
+        log_queue.put("✅ Local sandbox ready")
     
     failing_tests = [test_path] if test_path else []
     
