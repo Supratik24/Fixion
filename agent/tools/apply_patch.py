@@ -29,14 +29,18 @@ def _run_git_apply(
         - valid (bool)
         - error (str) — git apply stderr if failed
     """
-    args = ["git", "apply", "--whitespace=fix"]
+    args = ["git", "apply", "--whitespace=fix", "--recount"]
     if check_only:
         args.append("--check")
 
+    normalized_patch = patch_text.replace("\r\n", "\n")
+    if not normalized_patch.endswith("\n"):
+        normalized_patch += "\n"
+
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".patch", delete=False, encoding="utf-8"
+        mode="w", suffix=".patch", delete=False, encoding="utf-8", newline="\n"
     ) as f:
-        f.write(patch_text)
+        f.write(normalized_patch)
         patch_file = f.name
 
     try:

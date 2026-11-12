@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     github_token: str = Field(alias="GITHUB_TOKEN", default="")
 
     # ── Agent loop ────────────────────────────────────────────────────────────
-    max_retries: int = 5
+    max_retries: int = 8
     num_candidates: int = Field(default=3, alias="FIXION_NUM_CANDIDATES")
     use_symbol_graph: bool = True
     use_semantic_search: bool = True

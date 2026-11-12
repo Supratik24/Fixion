@@ -21,6 +21,7 @@ Architecture:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -492,6 +493,20 @@ def _load_prompt(name: str) -> str:
 # ── Main loop ──────────────────────────────────────────────────────────────────
 
 
+def _notify(ctx: AgentContext, msg: str) -> None:
+    """Send log event to logger and to ctx.log_callback if available."""
+    logger.info("%s", msg)
+    if ctx.log_callback:
+        try:
+            ctx.log_callback(msg)
+        except UnicodeEncodeError:
+            safe_msg = msg.encode("ascii", errors="replace").decode("ascii")
+            with contextlib.suppress(Exception):
+                ctx.log_callback(safe_msg)
+        except Exception:
+            pass
+
+
 def run_agent(ctx: AgentContext) -> AgentResult:
     """
     Run the full Fixion agent loop for one issue.
@@ -544,6 +559,7 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
     logger.info("Starting agent loop for issue (max_retries=%d)", ctx.max_retries)
 
     # ── Gemini backend ─────────────────────────────────────────────────────────
+    gemini_failed = False
     if backend == "gemini":
         from google.genai import types as genai_types
 
@@ -554,9 +570,23 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
 
         while iterations <= ctx.max_retries:
             iterations += 1
-            logger.info("Agent iteration %d/%d", iterations, ctx.max_retries + 1)
+            _notify(ctx, f"🧠 Reasoning iteration {iterations}/{ctx.max_retries + 1} [{backend}]...")
 
-            llm_response, raw_content = _call_gemini(history, system_prompt, gemini_tools)
+            try:
+                llm_response, raw_content = _call_gemini(history, system_prompt, gemini_tools)
+            except Exception as exc:
+                if settings.openrouter_api_key or settings.groq_api_key:
+                    fallback_b = "openrouter" if settings.openrouter_api_key else "groq"
+                    _notify(ctx, f"⚠️ Gemini API issue ({exc}). Failing over to {fallback_b}...")
+                    gemini_failed = True
+                    backend = fallback_b
+                    iterations = 0
+                    break
+                else:
+                    _notify(ctx, f"❌ LLM error: {exc}")
+                    final_answer = f"Agent failed due to LLM error: {exc}"
+                    break
+
             history.append(raw_content)
 
             tokens_in += getattr(llm_response, "prompt_tokens", 0)
@@ -565,22 +595,36 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
 
             if not llm_response.has_tool_calls:
                 final_answer = llm_response.text
-                logger.info("Agent produced final answer after %d iterations.", iterations)
+                _notify(ctx, f"🏁 Agent produced final resolution after {iterations} iteration(s).")
                 break
 
             tool_results: list[genai_types.Part] = []
             for tc in llm_response.tool_calls:
+                _notify(ctx, f"🔧 Tool: {tc.name}...")
                 result = _dispatch_tool(tc.name, tc.args, ctx)
-                if tc.name == "apply_patch" and result.get("applied"):
+                if tc.name == "reproduce_issue":
+                    if result.get("reproduced"):
+                        _notify(ctx, "✅ Bug reproduced: test confirmed failing on unpatched codebase.")
+                    else:
+                        _notify(ctx, f"ℹ️ Reproduction status: {result.get('status')}")
+                elif tc.name == "apply_patch" and result.get("applied"):
                     last_patch = tc.args.get("patch_text", "")
-                if tc.name == "evaluate_candidates" and result.get("winner_applied"):
+                    _notify(ctx, "📝 Candidate patch applied cleanly to workspace.")
+                elif tc.name == "evaluate_candidates" and result.get("winner_applied"):
                     last_patch = result.get("winner_patch", "")
-                if tc.name == "run_tests":
+                    _notify(ctx, f"🏆 Evaluated {result.get('total_candidates', 0)} candidates — winning patch applied.")
+                elif tc.name == "run_tests":
+                    if result.get("passed"):
+                        _notify(ctx, "✅ Verification tests PASSED!")
+                    else:
+                        failed = result.get("failed_tests", [])
+                        _notify(ctx, f"❌ Tests FAILED ({len(failed)} test(s): {', '.join(failed[:2])})")
                     result, last_traceback, retries = _process_test_result(
                         result, last_patch, iterations, retries, ctx
                     )
                     if result.get("regression_detected"):
                         last_patch = ""
+                        _notify(ctx, "⚠️ Regression detected! Auto-reverting patch.")
 
                 tool_results.append(
                     genai_types.Part(
@@ -594,11 +638,12 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
             history.append(genai_types.Content(role="user", parts=tool_results))
 
         else:
-            logger.warning("Max retries (%d) exceeded. Returning best attempt.", ctx.max_retries)
-            final_answer = "Max retries exceeded."
+            if not gemini_failed:
+                _notify(ctx, f"⚠️ Max retries ({ctx.max_retries}) reached.")
+                final_answer = "Max retries exceeded."
 
     # ── Groq / OpenRouter / Ollama backend ────────────────────────────────────
-    else:
+    if backend != "gemini" or gemini_failed:
         if backend == "groq":
             api_key = settings.groq_api_key
             base_url = GROQ_BASE_URL
@@ -625,7 +670,7 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
 
         while iterations <= ctx.max_retries:
             iterations += 1
-            logger.info("Agent iteration %d/%d [%s/%s]", iterations, ctx.max_retries + 1, backend, model)
+            _notify(ctx, f"🧠 Reasoning iteration {iterations}/{ctx.max_retries + 1} [{backend}/{model}]...")
 
             llm_response = _call_openai_compat(
                 oa_history, system_prompt, openai_tools, base_url, api_key, model
@@ -638,28 +683,42 @@ Follow your mandatory 4-phase workflow. You MUST write a patch by iteration 2.
 
             if not llm_response.has_tool_calls:
                 final_answer = llm_response.text
-                logger.info("Agent produced final answer after %d iterations.", iterations)
+                _notify(ctx, f"🏁 Agent produced final resolution after {iterations} iteration(s).")
                 break
 
             results = []
             for tc in llm_response.tool_calls:
+                _notify(ctx, f"🔧 Tool: {tc.name}...")
                 result = _dispatch_tool(tc.name, tc.args, ctx)
-                if tc.name == "apply_patch" and result.get("applied"):
+                if tc.name == "reproduce_issue":
+                    if result.get("reproduced"):
+                        _notify(ctx, "✅ Bug reproduced: test confirmed failing on unpatched codebase.")
+                    else:
+                        _notify(ctx, f"ℹ️ Reproduction status: {result.get('status')}")
+                elif tc.name == "apply_patch" and result.get("applied"):
                     last_patch = tc.args.get("patch_text", "")
-                if tc.name == "evaluate_candidates" and result.get("winner_applied"):
+                    _notify(ctx, "📝 Candidate patch applied cleanly to workspace.")
+                elif tc.name == "evaluate_candidates" and result.get("winner_applied"):
                     last_patch = result.get("winner_patch", "")
-                if tc.name == "run_tests":
+                    _notify(ctx, f"🏆 Evaluated {result.get('total_candidates', 0)} candidates — winning patch applied.")
+                elif tc.name == "run_tests":
+                    if result.get("passed"):
+                        _notify(ctx, "✅ Verification tests PASSED!")
+                    else:
+                        failed = result.get("failed_tests", [])
+                        _notify(ctx, f"❌ Tests FAILED ({len(failed)} test(s): {', '.join(failed[:2])})")
                     result, last_traceback, retries = _process_test_result(
                         result, last_patch, iterations, retries, ctx
                     )
                     if result.get("regression_detected"):
                         last_patch = ""
+                        _notify(ctx, "⚠️ Regression detected! Auto-reverting patch.")
                 results.append(result)
 
             openai_history_append_tool_results(oa_history, llm_response.tool_calls, results)
 
         else:
-            logger.warning("Max retries (%d) exceeded. Returning best attempt.", ctx.max_retries)
+            _notify(ctx, f"⚠️ Max retries ({ctx.max_retries}) reached.")
             final_answer = "Max retries exceeded."
 
     return _parse_final_answer(

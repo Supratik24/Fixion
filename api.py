@@ -173,6 +173,7 @@ def _setup_fix_run(
         use_symbol_graph=not no_symbol_graph,
         use_semantic_search=not no_semantic_search,
         approval_callback=approval_callback,
+        log_callback=log_queue.put,
     )
 
 def run_job_sync(job_id: str, req: FixRequest, log_queue: queue.Queue):

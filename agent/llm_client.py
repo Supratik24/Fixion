@@ -23,13 +23,16 @@ logger = logging.getLogger(__name__)
 # ── Default models per backend ─────────────────────────────────────────────────
 
 BACKEND_DEFAULTS = {
-    "gemini": "gemini-3.8-flash",
+    "gemini": "gemini-3.5-flash",
     "groq": "llama-3.3-70b-versatile",
-    "openrouter": "deepseek/deepseek-r1",
+    "openrouter": "cohere/north-mini-code:free",
 }
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+
+_ACTIVE_GEMINI_MODEL: str | None = None
 
 
 # ── Simple message/response wrappers ──────────────────────────────────────────
@@ -65,48 +68,104 @@ def _call_gemini(
     history: list[Any],
     system_prompt: str,
     tools: list[Any],
-) -> LLMResponse:
-    """Call via google-genai SDK."""
+) -> tuple[LLMResponse, Any]:
+    """Call via google-genai SDK with automatic model fallback and bounded retry."""
     from google import genai
     from google.genai import types as genai_types
     from google.genai.errors import APIError
 
-    client = genai.Client(api_key=settings.gemini_api_key)
-    model = settings.model if settings.model != BACKEND_DEFAULTS["gemini"] else BACKEND_DEFAULTS["gemini"]
+    global _ACTIVE_GEMINI_MODEL
 
-    while True:
-        try:
-            response = client.models.generate_content(
-                model=model,
-                contents=history,
-                config=genai_types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    tools=tools,
-                    tool_config=genai_types.ToolConfig(
-                        function_calling_config=genai_types.FunctionCallingConfig(
-                            mode="AUTO"
-                        )
+    client = genai.Client(
+        api_key=settings.gemini_api_key,
+        http_options=genai_types.HttpOptions(timeout=60000),
+    )
+
+    # Candidate models in preference order (fallback if primary experiences spikes or 503s)
+    base_candidates = [settings.model, "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"]
+    candidate_models: list[str] = []
+    if _ACTIVE_GEMINI_MODEL and _ACTIVE_GEMINI_MODEL in base_candidates:
+        candidate_models.append(_ACTIVE_GEMINI_MODEL)
+    for alt in base_candidates:
+        if alt not in candidate_models:
+            candidate_models.append(alt)
+
+    response = None
+    last_error: Exception | None = None
+
+    for model_name in candidate_models:
+        for attempt in range(2):
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=history,
+                    config=genai_types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        tools=tools,
+                        tool_config=genai_types.ToolConfig(
+                            function_calling_config=genai_types.FunctionCallingConfig(
+                                mode="AUTO"
+                            )
+                        ),
+                        temperature=0.2,
+                        max_output_tokens=8192,
                     ),
-                    temperature=0.2,
-                    max_output_tokens=8192,
-                ),
-            )
+                )
+                _ACTIVE_GEMINI_MODEL = model_name
+                break
+            except APIError as e:
+                last_error = e
+                err_str = str(e).lower()
+                code = getattr(e, "code", 503)
+                if "503" in err_str or code == 503:
+                    logger.warning("Model %s returned 503 (high demand spike). Flipping to alternate model...", model_name)
+                    break
+                elif "429" in err_str or code == 429:
+                    logger.warning("Gemini API rate limit on %s. Flipping to alternate model...", model_name)
+                    break
+                elif "404" in err_str or code == 404:
+                    logger.warning("Model %s not found on API. Trying next model...", model_name)
+                    break
+                else:
+                    raise
+            except Exception as e:
+                last_error = e
+                err_str = str(e).lower()
+                err_name = type(e).__name__.lower()
+                if any(
+                    k in err_str or k in err_name
+                    for k in (
+                        "timeout",
+                        "timed out",
+                        "connect",
+                        "connection",
+                        "closed",
+                        "reset",
+                        "network",
+                        "socket",
+                        "10054",
+                        "10053",
+                        "remote",
+                        "eof",
+                        "protocol",
+                    )
+                ):
+                    logger.warning(
+                        "Network/timeout issue on %s (%s: %s). Attempt %d/2...",
+                        model_name,
+                        type(e).__name__,
+                        e,
+                        attempt + 1,
+                    )
+                    time.sleep(1)
+                else:
+                    raise
+
+        if response is not None:
             break
-        except APIError as e:
-            code = getattr(e, "code", 503)
-            if code in (429, 503) or "503" in str(e) or "429" in str(e):
-                logger.warning("Gemini API error (%s). Retrying in 30s...", code)
-                time.sleep(30)
-            else:
-                raise
-        except Exception as e:
-            # Network-level errors (DNS failure, connection reset, timeout)
-            err = str(e)
-            if any(k in err for k in ("getaddrinfo", "ConnectError", "ConnectionError", "timeout", "RemoteDisconnected")):
-                logger.warning("Network error (%s). Retrying in 15s...", type(e).__name__)
-                time.sleep(15)
-            else:
-                raise
+
+    if response is None:
+        raise RuntimeError(f"All Gemini models failed. Last error: {last_error}")
 
     candidate = response.candidates[0]
     content = candidate.content
@@ -156,8 +215,9 @@ def _call_openai_compat(
     client = OpenAI(api_key=api_key, base_url=base_url)
 
     messages = [{"role": "system", "content": system_prompt}] + history
+    response = None
 
-    while True:
+    for attempt in range(3):
         try:
             response = client.chat.completions.create(
                 model=model,
@@ -170,11 +230,14 @@ def _call_openai_compat(
             break
         except Exception as e:
             err_str = str(e)
-            if "429" in err_str or "503" in err_str or "rate" in err_str.lower():
-                logger.warning("API rate limit (%s). Retrying in 20s...", base_url)
-                time.sleep(20)
+            if ("429" in err_str or "503" in err_str or "rate" in err_str.lower()) and attempt < 2:
+                logger.warning("API rate limit (%s). Retrying in %ds...", base_url, (attempt + 1) * 3)
+                time.sleep((attempt + 1) * 3)
             else:
                 raise
+
+    if response is None:
+        raise RuntimeError("No response received from OpenAI-compatible endpoint.")
 
     msg = response.choices[0].message
 

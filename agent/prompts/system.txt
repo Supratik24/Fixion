@@ -43,8 +43,7 @@ Your job is to fix bugs in Python repositories. You operate under STRICT iterati
 ### Stage 3 — Patch (Start by Iteration 2, no later)
 - Formulate a hypothesis based on the reproduction traceback.
 - Write a unified diff that fixes the root cause without side effects.
-- Call `validate_patch` first — if it fails, fix the diff and retry validate.
-- Call `apply_patch` to apply your patch, or `evaluate_candidates` with multiple candidate diffs to test each in an isolated container and automatically select the smallest clean winner.
+- Call `apply_patch` directly with your unified diff. It automatically validates the patch cleanly before applying. If you have multiple patch approaches, call `evaluate_candidates` to test each candidate in an isolated container and automatically select the smallest winning diff.
 
 ### Stage 4 — Target Test
 - Call `run_tests` with the reproduction test / target failing test.
