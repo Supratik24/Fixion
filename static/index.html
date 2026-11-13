@@ -76,88 +76,88 @@
             overflow-x: hidden;
         }
 
-        /* Interactive Canvas background */
+        /* Interactive Cybernetic Canvas Layer */
         #bgCanvas {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 2;
             pointer-events: none;
         }
 
         /* Grid lines & Flowing Matrix Animation */
         @keyframes cyberGridFlow {
             0% { background-position: 0 0; }
-            100% { background-position: 48px 48px; }
+            100% { background-position: 60px 60px; }
         }
         .cyber-grid {
-            background-size: 48px 48px;
+            background-size: 60px 60px;
             background-image: 
-                linear-gradient(to right, rgba(99, 102, 241, 0.035) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(99, 102, 241, 0.035) 1px, transparent 1px);
-            animation: cyberGridFlow 35s linear infinite;
+                linear-gradient(to right, rgba(99, 102, 241, 0.055) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(99, 102, 241, 0.055) 1px, transparent 1px);
+            animation: cyberGridFlow 25s linear infinite;
         }
 
-        /* Floating Aurora Orbs */
+        /* Floating Aurora Orbs with higher luminance */
         @keyframes orbDrift1 {
-            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.35; }
-            33% { transform: translate(70px, -50px) scale(1.15); opacity: 0.55; }
-            66% { transform: translate(-50px, 40px) scale(0.92); opacity: 0.3; }
+            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.45; }
+            33% { transform: translate(90px, -70px) scale(1.22); opacity: 0.72; }
+            66% { transform: translate(-70px, 50px) scale(0.9); opacity: 0.4; }
         }
         @keyframes orbDrift2 {
-            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-            33% { transform: translate(-80px, 60px) scale(1.22); opacity: 0.5; }
-            66% { transform: translate(60px, -45px) scale(0.88); opacity: 0.25; }
+            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
+            33% { transform: translate(-100px, 80px) scale(1.28); opacity: 0.68; }
+            66% { transform: translate(80px, -60px) scale(0.85); opacity: 0.35; }
         }
         @keyframes orbDrift3 {
-            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.25; }
-            50% { transform: translate(90px, 50px) scale(1.28); opacity: 0.45; }
+            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.38; }
+            50% { transform: translate(110px, 70px) scale(1.35); opacity: 0.65; }
         }
         @keyframes orbDrift4 {
-            0%, 100% { transform: translate(0, 0) scale(0.95); opacity: 0.2; }
-            50% { transform: translate(-60px, -70px) scale(1.2); opacity: 0.4; }
+            0%, 100% { transform: translate(0, 0) scale(0.95); opacity: 0.32; }
+            50% { transform: translate(-80px, -90px) scale(1.25); opacity: 0.58; }
         }
         @keyframes cyberScanline {
             0% { transform: translateY(-100vh); opacity: 0; }
-            50% { opacity: 0.25; }
+            50% { opacity: 0.35; }
             100% { transform: translateY(100vh); opacity: 0; }
         }
-        .animate-orb-1 { animation: orbDrift1 18s ease-in-out infinite; }
-        .animate-orb-2 { animation: orbDrift2 22s ease-in-out infinite; }
-        .animate-orb-3 { animation: orbDrift3 16s ease-in-out infinite; }
-        .animate-orb-4 { animation: orbDrift4 20s ease-in-out infinite; }
+        .animate-orb-1 { animation: orbDrift1 16s ease-in-out infinite; }
+        .animate-orb-2 { animation: orbDrift2 20s ease-in-out infinite; }
+        .animate-orb-3 { animation: orbDrift3 15s ease-in-out infinite; }
+        .animate-orb-4 { animation: orbDrift4 18s ease-in-out infinite; }
         .cyber-scanline {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            height: 120px;
-            background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.08) 50%, rgba(34, 211, 238, 0.15) 95%, transparent 100%);
+            height: 140px;
+            background: linear-gradient(180deg, transparent 0%, rgba(99, 102, 241, 0.12) 50%, rgba(34, 211, 238, 0.22) 95%, transparent 100%);
             pointer-events: none;
             z-index: 1;
-            animation: cyberScanline 9s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            animation: cyberScanline 7.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
 
-        /* Glassmorphism 2.0 */
+        /* Glassmorphism 2.0 - Low-Dispersion Blur for Crisp Background Graphics */
         .glass-card {
-            background: rgba(13, 17, 28, 0.65);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(10, 15, 29, 0.40);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            border: 1px solid rgba(99, 102, 241, 0.22);
             box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6);
             transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
         .glass-card:hover {
-            border-color: rgba(99, 102, 241, 0.25);
-            box-shadow: 0 12px 35px -8px rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.38);
+            box-shadow: 0 12px 35px -8px rgba(99, 102, 241, 0.25);
         }
 
         .glass-pill {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(4px);
         }
 
         /* Animated Glowing Edge */
@@ -248,6 +248,98 @@
             animation: shimmer 4s linear infinite;
         }
 
+        /* Terminal Cyber Corner Brackets */
+        .terminal-corner {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            pointer-events: none;
+            z-index: 15;
+            border-color: rgba(6, 182, 212, 0.75);
+            filter: drop-shadow(0 0 6px rgba(6, 182, 212, 0.6));
+        }
+        .corner-tl { top: 6px; left: 6px; border-top: 2px solid; border-left: 2px solid; }
+        .corner-tr { top: 6px; right: 6px; border-top: 2px solid; border-right: 2px solid; }
+        .corner-bl { bottom: 6px; left: 6px; border-bottom: 2px solid; border-left: 2px solid; }
+        .corner-br { bottom: 6px; right: 6px; border-bottom: 2px solid; border-right: 2px solid; }
+
+        /* Terminal CRT Phosphor Scanline */
+        .terminal-scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background: linear-gradient(180deg, transparent 0%, rgba(6, 182, 212, 0.05) 40%, rgba(99, 102, 241, 0.12) 80%, transparent 100%);
+            pointer-events: none;
+            z-index: 5;
+            animation: termScan 4.5s linear infinite;
+        }
+        @keyframes termScan {
+            0% { transform: translateY(-70px); }
+            100% { transform: translateY(100vh); }
+        }
+
+        /* Real-time Frequency Equalizer Bars */
+        .eq-bar {
+            width: 2.5px;
+            background: linear-gradient(180deg, #06b6d4, #6366f1);
+            border-radius: 1px;
+            animation: eqBounce 1.2s ease-in-out infinite alternate;
+        }
+        @keyframes eqBounce {
+            0% { height: 3px; }
+            50% { height: 14px; }
+            100% { height: 6px; }
+        }
+        .eq-bar:nth-child(1) { animation-delay: 0.1s; animation-duration: 0.8s; }
+        .eq-bar:nth-child(2) { animation-delay: 0.3s; animation-duration: 1.1s; }
+        .eq-bar:nth-child(3) { animation-delay: 0.05s; animation-duration: 0.9s; }
+        .eq-bar:nth-child(4) { animation-delay: 0.4s; animation-duration: 1.3s; }
+        .eq-bar:nth-child(5) { animation-delay: 0.2s; animation-duration: 0.7s; }
+        .eq-bar:nth-child(6) { animation-delay: 0.35s; animation-duration: 1.0s; }
+
+        /* HUD Stage Laser Conduits */
+        .hud-laser-conduit {
+            position: relative;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+            border-radius: 9999px;
+        }
+        .hud-laser-pulse {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 60%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, #06b6d4, #a855f7, transparent);
+            box-shadow: 0 0 10px #06b6d4;
+            animation: laserStream 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        @keyframes laserStream {
+            0% { left: -60%; }
+            100% { left: 160%; }
+        }
+        .laser-delay-1 { animation-delay: 0s; }
+        .laser-delay-2 { animation-delay: 0.45s; }
+        .laser-delay-3 { animation-delay: 0.9s; }
+        .laser-delay-4 { animation-delay: 1.35s; }
+
+        /* Step Icon Box Sci-Fi Edge */
+        .step-icon-box {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        .step-icon-box::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            pointer-events: none;
+        }
+
         /* Pulse wave around active stage */
         @keyframes pingSlow {
             0% { transform: scale(1); opacity: 0.8; }
@@ -267,10 +359,10 @@
     <div class="cyber-scanline"></div>
 
     <!-- Animated Ambient Nebulae & Glowing Gradient Spheres -->
-    <div class="fixed top-[-120px] left-1/4 w-[650px] h-[650px] bg-indigo-600/25 rounded-full blur-[150px] pointer-events-none z-0 animate-orb-1"></div>
-    <div class="fixed bottom-[-160px] right-8 w-[600px] h-[600px] bg-purple-600/25 rounded-full blur-[160px] pointer-events-none z-0 animate-orb-2"></div>
-    <div class="fixed top-1/3 left-[-140px] w-[550px] h-[550px] bg-cyan-500/20 rounded-full blur-[140px] pointer-events-none z-0 animate-orb-3"></div>
-    <div class="fixed bottom-1/4 left-1/2 w-[500px] h-[500px] bg-fuchsia-600/15 rounded-full blur-[160px] pointer-events-none z-0 animate-orb-4"></div>
+    <div class="fixed top-[-100px] left-1/4 w-[700px] h-[700px] bg-indigo-600/35 rounded-full blur-[140px] pointer-events-none z-0 animate-orb-1"></div>
+    <div class="fixed bottom-[-140px] right-8 w-[650px] h-[650px] bg-purple-600/35 rounded-full blur-[150px] pointer-events-none z-0 animate-orb-2"></div>
+    <div class="fixed top-1/3 left-[-120px] w-[600px] h-[600px] bg-cyan-500/30 rounded-full blur-[130px] pointer-events-none z-0 animate-orb-3"></div>
+    <div class="fixed bottom-1/4 left-1/2 w-[550px] h-[550px] bg-fuchsia-600/25 rounded-full blur-[150px] pointer-events-none z-0 animate-orb-4"></div>
 
     <!-- Top Navigation Bar -->
     <header class="relative z-20 border-b border-white/[0.07] glass-card px-6 py-3.5 flex items-center justify-between">
@@ -296,17 +388,24 @@
         <div class="hidden md:flex items-center gap-3">
             <!-- Live Status Indicator -->
             <div class="glass-pill px-3.5 py-1.5 rounded-full flex items-center gap-2 border border-white/[0.08]">
-                <span id="telemetryDot" class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span id="telemetryDot" class="relative inline-flex rounded-full h-2 w-2 bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></span>
+                </span>
                 <span id="telemetryStatus" class="text-xs font-semibold text-slate-200">System Ready</span>
             </div>
 
             <!-- Runtime Timer -->
-            <div class="glass-pill px-3 py-1.5 rounded-full flex items-center gap-1.5 mono text-xs text-slate-300">
+            <div class="glass-pill px-3 py-1.5 rounded-full flex items-center gap-2 mono text-xs text-slate-300">
                 <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <circle cx="12" cy="12" r="9" stroke-width="2"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 7v5l3 2"/>
                 </svg>
                 <span id="runtimeTimer" class="font-medium">00:00.0</span>
+                <!-- Mini ECG pulse wave -->
+                <svg class="w-5 h-2.5 text-cyan-400/80 animate-pulse" viewBox="0 0 40 16" fill="none">
+                    <path d="M0 8h10l3-6 5 12 4-8 3 4 5-2h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
             </div>
 
             <!-- Iterations Counter -->
@@ -345,7 +444,7 @@
     </header>
 
     <!-- Visual Agent Pipeline HUD Tracker -->
-    <section class="relative z-10 px-6 py-3 border-b border-white/[0.06] bg-slate-950/40 backdrop-blur-md">
+    <section class="relative z-10 px-6 py-3 border-b border-white/[0.06] bg-slate-950/30 backdrop-blur-md">
         <div class="max-w-7xl mx-auto flex items-center justify-between gap-2 overflow-x-auto py-1">
             
             <!-- Step 1: Ingest -->
@@ -360,7 +459,10 @@
                 </div>
             </div>
 
-            <div class="h-[1px] w-6 md:w-12 bg-white/10"></div>
+            <!-- Conduit 1 -->
+            <div class="hud-laser-conduit flex-1 h-[2px] min-w-[20px] max-w-[48px]">
+                <div class="hud-laser-pulse laser-delay-1"></div>
+            </div>
 
             <!-- Step 2: Index -->
             <div id="step-index" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
@@ -374,7 +476,10 @@
                 </div>
             </div>
 
-            <div class="h-[1px] w-6 md:w-12 bg-white/10"></div>
+            <!-- Conduit 2 -->
+            <div class="hud-laser-conduit flex-1 h-[2px] min-w-[20px] max-w-[48px]">
+                <div class="hud-laser-pulse laser-delay-2"></div>
+            </div>
 
             <!-- Step 3: Sandbox -->
             <div id="step-sandbox" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
@@ -388,7 +493,10 @@
                 </div>
             </div>
 
-            <div class="h-[1px] w-6 md:w-12 bg-white/10"></div>
+            <!-- Conduit 3 -->
+            <div class="hud-laser-conduit flex-1 h-[2px] min-w-[20px] max-w-[48px]">
+                <div class="hud-laser-pulse laser-delay-3"></div>
+            </div>
 
             <!-- Step 4: Reasoning -->
             <div id="step-reason" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
@@ -402,7 +510,10 @@
                 </div>
             </div>
 
-            <div class="h-[1px] w-6 md:w-12 bg-white/10"></div>
+            <!-- Conduit 4 -->
+            <div class="hud-laser-conduit flex-1 h-[2px] min-w-[20px] max-w-[48px]">
+                <div class="hud-laser-pulse laser-delay-4"></div>
+            </div>
 
             <!-- Step 5: Verification & Patch -->
             <div id="step-verify" class="flex items-center gap-2.5 opacity-60 transition-all duration-300">
@@ -420,10 +531,10 @@
     </section>
 
     <!-- Main Workspace Grid -->
-    <main class="relative z-10 flex-1 flex flex-col lg:flex-row overflow-hidden">
+    <main class="relative z-0 flex-1 flex flex-col lg:flex-row overflow-hidden">
 
         <!-- Left Configuration & Control Sidebar -->
-        <aside class="w-full lg:w-[420px] flex flex-col border-r border-white/[0.07] bg-slate-950/60 backdrop-blur-xl overflow-y-auto">
+        <aside class="w-full lg:w-[420px] flex flex-col border-r border-white/[0.08] bg-slate-950/45 backdrop-blur-md overflow-y-auto">
             
             <div class="p-5 border-b border-white/[0.06] flex items-center justify-between">
                 <div>
@@ -584,7 +695,7 @@
         </aside>
 
         <!-- Right Visual Workspace: Terminal & Resolution Center -->
-        <section class="flex-1 flex flex-col bg-slate-950/30 overflow-hidden relative">
+        <section class="flex-1 flex flex-col bg-slate-950/20 overflow-hidden relative">
 
             <!-- Tab Switcher Header -->
             <div class="px-5 py-3 border-b border-white/[0.06] glass-card flex items-center justify-between gap-4">
@@ -634,36 +745,68 @@
             </div>
 
             <!-- Panel 1: Live Interactive Terminal Console -->
-            <div id="logsPanel" class="flex-1 flex flex-col overflow-hidden bg-slate-950/70 relative">
+            <div id="logsPanel" class="flex-1 flex flex-col overflow-hidden bg-slate-950/40 backdrop-blur-sm relative">
                 
+                <!-- Terminal Cyber FX Canvas: 3D Holographic Gyroscope, Matrix Streams & Oscilloscope -->
+                <canvas id="terminalFxCanvas" class="absolute inset-0 w-full h-full pointer-events-none z-0"></canvas>
+
+                <!-- Moving Terminal CRT Phosphor Scanline -->
+                <div class="terminal-scanline pointer-events-none"></div>
+
+                <!-- Terminal Corner Cyber Brackets -->
+                <div class="terminal-corner corner-tl"></div>
+                <div class="terminal-corner corner-tr"></div>
+                <div class="terminal-corner corner-bl"></div>
+                <div class="terminal-corner corner-br"></div>
+
                 <!-- Terminal Decorative Window Header -->
-                <div class="px-4 py-2 bg-black/50 border-b border-white/[0.05] flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-rose-500/70 inline-block"></span>
-                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500/70 inline-block"></span>
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/70 inline-block"></span>
-                        <span class="ml-2 mono text-[11px] text-slate-500 font-medium">fixion-terminal: active-session</span>
+                <div class="relative z-10 px-4 py-2 bg-black/45 border-b border-white/[0.08] flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80 shadow-[0_0_8px_rgba(244,63,94,0.6)] inline-block"></span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80 shadow-[0_0_8px_rgba(245,158,11,0.6)] inline-block"></span>
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80 shadow-[0_0_8px_rgba(16,185,129,0.6)] inline-block"></span>
+                        </div>
+                        <span class="mono text-[11px] text-cyan-300 font-semibold tracking-wide">fixion-terminal: active-session</span>
+
+                        <!-- Real-time Equalizer Audio / Frequency Visualizer Bars -->
+                        <div class="hidden sm:flex items-center gap-0.5 h-3.5 px-1.5 py-0.5 rounded bg-cyan-950/40 border border-cyan-500/30">
+                            <span class="eq-bar"></span>
+                            <span class="eq-bar"></span>
+                            <span class="eq-bar"></span>
+                            <span class="eq-bar"></span>
+                            <span class="eq-bar"></span>
+                            <span class="eq-bar"></span>
+                        </div>
                     </div>
                     
-                    <div class="flex items-center gap-2 text-[10px] mono text-slate-500">
+                    <div class="flex items-center gap-3 text-[10px] mono text-slate-400">
+                        <span class="hidden md:inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 font-medium tracking-wider">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            UPLINK::ONLINE
+                        </span>
+                        <span class="text-slate-500">•</span>
                         <span>Encoding: UTF-8</span>
-                        <span>•</span>
-                        <span id="logByteSize">0 B</span>
+                        <span class="text-slate-500">•</span>
+                        <span id="logByteSize" class="text-cyan-400 font-semibold">0 B</span>
                     </div>
                 </div>
 
                 <!-- Scrolling Logs Container -->
-                <div id="terminalContainer" class="flex-1 p-4 overflow-y-auto font-mono text-[12px] leading-relaxed flex flex-col gap-1">
+                <div id="terminalContainer" class="relative z-10 flex-1 p-4 overflow-y-auto font-mono text-[12px] leading-relaxed flex flex-col gap-1 bg-transparent">
                     <div id="terminalRows" class="flex flex-col gap-1">
-                        <div class="text-slate-600">---------------- Fixion Engine Online ----------------</div>
-                        <div class="text-slate-500">System calibrated. Configure parameters and click "Deploy Fixion Agent" to begin.</div>
+                        <div class="text-cyan-400/90 font-semibold flex items-center gap-2">
+                            <span class="inline-block w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                            ---------------- Fixion Engine Online ----------------
+                        </div>
+                        <div class="text-slate-300">System calibrated. Configure parameters and click "Deploy Fixion Agent" to begin.</div>
                     </div>
                 </div>
 
                 <!-- Bottom Status Bar -->
-                <div class="px-4 py-1.5 bg-black/60 border-t border-white/[0.04] flex items-center justify-between text-[11px] text-slate-500 mono">
+                <div class="relative z-10 px-4 py-1.5 bg-black/55 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-slate-400 mono">
                     <div class="flex items-center gap-2">
-                        <span id="activeProcessIndicator" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                        <span id="activeProcessIndicator" class="w-2 h-2 rounded-full bg-slate-500"></span>
                         <span id="activeProcessText">STANDBY</span>
                     </div>
                     <span id="activeJobIdText">NO JOB RUNNING</span>
@@ -671,7 +814,7 @@
             </div>
 
             <!-- Panel 2: Resolution & Diff Inspector (Hidden Initially) -->
-            <div id="resultPanel" class="flex-1 hidden p-6 overflow-y-auto bg-slate-950/80">
+            <div id="resultPanel" class="flex-1 hidden p-6 overflow-y-auto bg-slate-950/50 backdrop-blur-sm">
                 <div class="max-w-5xl mx-auto flex flex-col gap-6">
                     
                     <!-- Result Summary Card -->
@@ -867,21 +1010,37 @@
     <!-- Interactive Canvas & Application Logic Scripts -->
     <script>
         // ---------------------------------------------------------------------
-        // 1. HIGH-PERFORMANCE INTERACTIVE CANVAS BACKGROUND 2.0 (CYBER-NEURAL)
+        // 1. HIGH-PERFORMANCE INTERACTIVE CANVAS BACKGROUND 3.0 (CYBER-ANIMATED)
         // ---------------------------------------------------------------------
         const canvas = document.getElementById('bgCanvas');
         const ctx = canvas.getContext('2d');
-        let width = canvas.width = window.innerWidth;
-        let height = canvas.height = window.innerHeight;
+        let width = 0;
+        let height = 0;
+        let isRunningState = false;
 
-        window.addEventListener('resize', () => {
-            width = canvas.width = window.innerWidth;
-            height = canvas.height = window.innerHeight;
-            initParticles();
-        });
+        let particles = [];
+        let dataPackets = [];
+        let shootingBeams = [];
+        let floatingRunes = [];
+        let hypercubeObj = null;
+        let icosahedronObj = null;
+        let horizonWave = null;
+        let cyberRadarRing = null;
+        let circuitBuses = [];
+
+        function resizeCanvas() {
+            const w = Math.max(window.innerWidth || 0, document.documentElement.clientWidth || 0);
+            const h = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0);
+            if (canvas.width !== w || canvas.height !== h || width !== w || height !== h) {
+                canvas.width = width = w;
+                canvas.height = height = h;
+                initAllCanvasObjects();
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
 
         // Mouse interaction state
-        const mouse = { x: null, y: null, radius: 175 };
+        const mouse = { x: null, y: null, radius: 190, reticleAngle: 0 };
         window.addEventListener('mousemove', (e) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
@@ -898,14 +1057,312 @@
             ripples.push({
                 x: e.clientX,
                 y: e.clientY,
-                radius: 5,
-                maxRadius: 220,
-                alpha: 0.65,
-                speed: isRunningState ? 6.5 : 4.5
+                radius: 6,
+                maxRadius: 260,
+                alpha: 0.85,
+                speed: isRunningState ? 7.5 : 5.2
             });
         });
 
-        // Particle Node
+        // Stable 3D Perspective Projection Helper
+        function project3D(v, rotX, rotY, rotZ, scale, cx, cy) {
+            const x = v[0], y = v[1], z = v[2];
+            // Rotate X
+            const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+            const y1 = y * cosX - z * sinX;
+            const z1 = y * sinX + z * cosX;
+            // Rotate Y
+            const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+            const x2 = x * cosY + z1 * sinY;
+            const z2 = -x * sinY + z1 * cosY;
+            // Rotate Z
+            const cosZ = Math.cos(rotZ), sinZ = Math.sin(rotZ);
+            const x3 = x2 * cosZ - y1 * sinZ;
+            const y3 = x2 * sinZ + y1 * cosZ;
+            // Positive Depth Perspective
+            const depth = 3.2 + z2;
+            const p = 2.8 / depth;
+            return {
+                x: cx + x3 * scale * p,
+                y: cy + y3 * scale * p,
+                z: z2,
+                p: p
+            };
+        }
+
+        // 3D Object Class: Hypercube (Tesseract)
+        class Hypercube3D {
+            constructor(relX, relY, scale) {
+                this.relX = relX;
+                this.relY = relY;
+                this.scale = scale;
+                this.rx = 0.3;
+                this.ry = 0.4;
+                this.rz = 0.1;
+                this.speedX = 0.005;
+                this.speedY = 0.007;
+                this.speedZ = 0.004;
+
+                // 16 vertices: 8 outer + 8 inner
+                this.vertices = [];
+                for (let i of [-1, 1]) {
+                    for (let j of [-1, 1]) {
+                        for (let k of [-1, 1]) {
+                            this.vertices.push([i, j, k]);
+                        }
+                    }
+                }
+                for (let i of [-0.5, 0.5]) {
+                    for (let j of [-0.5, 0.5]) {
+                        for (let k of [-0.5, 0.5]) {
+                            this.vertices.push([i, j, k]);
+                        }
+                    }
+                }
+
+                // 32 edges
+                this.edges = [
+                    // Outer cube (8 vertices 0-7)
+                    [0,1],[1,3],[3,2],[2,0], [4,5],[5,7],[7,6],[6,4],
+                    [0,4],[1,5],[2,6],[3,7],
+                    // Inner cube (8 vertices 8-15)
+                    [8,9],[9,11],[11,10],[10,8], [12,13],[13,15],[15,14],[14,12],
+                    [8,12],[9,13],[10,14],[11,15],
+                    // Cross connects
+                    [0,8],[1,9],[2,10],[3,11],[4,12],[5,13],[6,14],[7,15]
+                ];
+            }
+            update(mult = 1) {
+                this.rx += this.speedX * mult;
+                this.ry += this.speedY * mult;
+                this.rz += this.speedZ * mult;
+            }
+            draw() {
+                const cx = width * this.relX;
+                const cy = height * this.relY;
+                const projected = this.vertices.map(v => project3D(v, this.rx, this.ry, this.rz, this.scale, cx, cy));
+
+                // Draw glowing edges
+                ctx.save();
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = '#06b6d4';
+                for (let [i, j] of this.edges) {
+                    const p1 = projected[i];
+                    const p2 = projected[j];
+                    const isInner = i >= 8 && j >= 8;
+                    const isCross = (i < 8 && j >= 8) || (i >= 8 && j < 8);
+
+                    const grad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+                    if (isCross) {
+                        grad.addColorStop(0, 'rgba(6, 182, 212, 0.75)');
+                        grad.addColorStop(1, 'rgba(168, 85, 247, 0.75)');
+                    } else if (isInner) {
+                        grad.addColorStop(0, 'rgba(168, 85, 247, 0.85)');
+                        grad.addColorStop(1, 'rgba(236, 72, 153, 0.85)');
+                    } else {
+                        grad.addColorStop(0, 'rgba(6, 182, 212, 0.8)');
+                        grad.addColorStop(1, 'rgba(99, 102, 241, 0.8)');
+                    }
+
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.strokeStyle = grad;
+                    ctx.lineWidth = isInner ? 2.4 : 1.8;
+                    ctx.stroke();
+                }
+
+                // Draw glowing vertex nodes
+                for (let i = 0; i < projected.length; i++) {
+                    const p = projected[i];
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, i >= 8 ? 3.6 : 2.6, 0, Math.PI * 2);
+                    ctx.fillStyle = i >= 8 ? 'rgba(255, 255, 255, 0.95)' : 'rgba(34, 211, 238, 0.95)';
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // 3D Object Class: Geodesic Icosahedron
+        class Icosahedron3D {
+            constructor(relX, relY, scale) {
+                this.relX = relX;
+                this.relY = relY;
+                this.scale = scale;
+                this.rx = 0.2;
+                this.ry = -0.3;
+                this.rz = 0.5;
+                this.speedX = -0.004;
+                this.speedY = 0.006;
+                this.speedZ = -0.003;
+
+                const phi = (1 + Math.sqrt(5)) / 2;
+                const rawVerts = [
+                    [-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0],
+                    [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi],
+                    [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1]
+                ];
+                this.vertices = rawVerts.map(v => {
+                    const len = Math.hypot(v[0], v[1], v[2]);
+                    return [v[0] / len, v[1] / len, v[2] / len];
+                });
+
+                // Find 30 edges (pairs with distance close to 2/sqrt(1+phi^2))
+                this.edges = [];
+                const targetDistSq = Math.pow(2 / Math.sqrt(1 + phi * phi), 2);
+                for (let i = 0; i < 12; i++) {
+                    for (let j = i + 1; j < 12; j++) {
+                        const dx = this.vertices[i][0] - this.vertices[j][0];
+                        const dy = this.vertices[i][1] - this.vertices[j][1];
+                        const dz = this.vertices[i][2] - this.vertices[j][2];
+                        const distSq = dx * dx + dy * dy + dz * dz;
+                        if (Math.abs(distSq - targetDistSq) < 0.15) {
+                            this.edges.push([i, j]);
+                        }
+                    }
+                }
+            }
+            update(mult = 1) {
+                this.rx += this.speedX * mult;
+                this.ry += this.speedY * mult;
+                this.rz += this.speedZ * mult;
+            }
+            draw() {
+                const cx = width * this.relX;
+                const cy = height * this.relY;
+                const projected = this.vertices.map(v => project3D(v, this.rx, this.ry, this.rz, this.scale, cx, cy));
+
+                ctx.save();
+                ctx.shadowBlur = 14;
+                ctx.shadowColor = '#a855f7';
+                for (let [i, j] of this.edges) {
+                    const p1 = projected[i];
+                    const p2 = projected[j];
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.strokeStyle = 'rgba(168, 85, 247, 0.75)';
+                    ctx.lineWidth = 1.8;
+                    ctx.stroke();
+                }
+                for (let p of projected) {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 3.2, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(236, 72, 153, 0.95)';
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        // Flowing Perspective Cyber Horizon Grid
+        class CyberHorizonWave {
+            constructor() {
+                this.time = 0;
+            }
+            update(mult = 1) {
+                this.time += 0.02 * mult;
+            }
+            draw() {
+                const horizonY = height * 0.55;
+                const vanishingX = width * 0.5;
+
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#06b6d4';
+
+                // Glowing horizon laser line
+                const horizGrad = ctx.createLinearGradient(0, horizonY, width, horizonY);
+                horizGrad.addColorStop(0, 'rgba(99, 102, 241, 0)');
+                horizGrad.addColorStop(0.2, 'rgba(6, 182, 212, 0.7)');
+                horizGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+                horizGrad.addColorStop(0.8, 'rgba(6, 182, 212, 0.7)');
+                horizGrad.addColorStop(1, 'rgba(99, 102, 241, 0)');
+                ctx.beginPath();
+                ctx.moveTo(0, horizonY);
+                ctx.lineTo(width, horizonY);
+                ctx.strokeStyle = horizGrad;
+                ctx.lineWidth = 3.0;
+                ctx.stroke();
+
+                // 24 Perspective Rays radiating from vanishing point to bottom
+                const rayCount = 24;
+                for (let i = 0; i <= rayCount; i++) {
+                    const bottomX = (width / rayCount) * i;
+                    const grad = ctx.createLinearGradient(vanishingX, horizonY, bottomX, height);
+                    grad.addColorStop(0, 'rgba(6, 182, 212, 0.1)');
+                    grad.addColorStop(0.6, 'rgba(6, 182, 212, 0.55)');
+                    grad.addColorStop(1, 'rgba(168, 85, 247, 0.85)');
+
+                    ctx.beginPath();
+                    ctx.moveTo(vanishingX, horizonY);
+                    ctx.lineTo(bottomX, height);
+                    ctx.strokeStyle = grad;
+                    ctx.lineWidth = 2.0;
+                    ctx.stroke();
+                }
+
+                // 14 Undulating horizontal wave curves
+                const waveRows = 14;
+                for (let k = 1; k <= waveRows; k++) {
+                    const ratio = k / waveRows;
+                    const baseY = horizonY + Math.pow(ratio, 1.8) * (height - horizonY + 30);
+                    const alpha = Math.pow(ratio, 1.1) * 0.75;
+
+                    ctx.beginPath();
+                    const step = 20;
+                    for (let x = 0; x <= width + step; x += step) {
+                        const waveY = baseY + Math.sin(x * 0.008 + this.time * 2.5 + k * 0.7) * (12 * ratio * ratio);
+                        if (x === 0) ctx.moveTo(x, waveY);
+                        else ctx.lineTo(x, waveY);
+                    }
+                    ctx.strokeStyle = `rgba(6, 182, 212, ${alpha})`;
+                    ctx.lineWidth = 1.6 + ratio * 1.6;
+                    ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+        }
+
+        // Floating Micro Code & Telemetry Runes
+        class FloatingRune {
+            constructor() {
+                this.reset(true);
+            }
+            reset(initial = false) {
+                this.x = Math.random() * width;
+                this.y = initial ? Math.random() * height : height + 20;
+                this.vy = -(Math.random() * 0.45 + 0.25);
+                this.alpha = Math.random() * 0.35 + 0.25;
+                const runes = [
+                    '0x7F', '01001', 'FIXION::v2', 'AST::VALID', 'SYNAPSE',
+                    'SYS::OK', '0xFF0A', 'NODE::ACTIVE', 'PORT::8000',
+                    'DIFF::READY', 'LATENCY::6ms', 'SANDBOX::EXEC',
+                    'AI::CORE', 'λ::0.98', 'GIT::HEAD', 'BM25::INDEX'
+                ];
+                this.text = runes[Math.floor(Math.random() * runes.length)];
+                this.color = Math.random() < 0.5 ? 'rgba(34, 211, 238,' : 'rgba(168, 85, 247,';
+            }
+            update(mult = 1) {
+                this.y += this.vy * mult;
+                if (this.y < -30) this.reset();
+            }
+            draw() {
+                ctx.save();
+                ctx.font = 'bold 11px "JetBrains Mono", monospace';
+                ctx.fillStyle = `${this.color} ${this.alpha * 1.5})`;
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#06b6d4';
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.restore();
+            }
+        }
+
+        // High-Luminosity Synapse Particle Node
         class Particle {
             constructor() {
                 this.reset();
@@ -915,32 +1372,32 @@
             reset() {
                 this.x = Math.random() * width;
                 this.y = Math.random() * height;
-                this.vx = (Math.random() - 0.5) * 0.65;
-                this.vy = (Math.random() - 0.5) * 0.65;
-                this.baseRadius = Math.random() < 0.16 ? (Math.random() * 2.2 + 2.6) : (Math.random() * 1.5 + 0.9);
+                this.vx = (Math.random() - 0.5) * 0.85;
+                this.vy = (Math.random() - 0.5) * 0.85;
+                this.baseRadius = Math.random() < 0.25 ? (Math.random() * 2.6 + 3.2) : (Math.random() * 1.8 + 1.6);
                 this.radius = this.baseRadius;
-                this.isHub = this.baseRadius > 2.3;
-                this.colorType = Math.random() < 0.35 ? 'cyan' : (Math.random() < 0.68 ? 'indigo' : 'purple');
-                this.pulseSpeed = Math.random() * 0.04 + 0.02;
+                this.isHub = this.baseRadius > 2.8;
+                this.colorType = Math.random() < 0.4 ? 'cyan' : (Math.random() < 0.7 ? 'purple' : 'emerald');
+                this.pulseSpeed = Math.random() * 0.05 + 0.025;
                 this.pulseVal = Math.random() * Math.PI * 2;
-                this.alpha = Math.random() * 0.45 + 0.3;
+                this.alpha = Math.random() * 0.35 + 0.55;
             }
             update(speedMultiplier = 1) {
                 this.pulseVal += this.pulseSpeed;
-                this.radius = this.baseRadius + Math.sin(this.pulseVal) * (this.isHub ? 1.0 : 0.4);
+                this.radius = this.baseRadius + Math.sin(this.pulseVal) * (this.isHub ? 1.4 : 0.5);
 
                 this.x += this.vx * speedMultiplier;
                 this.y += this.vy * speedMultiplier;
 
-                // Gentle mouse attraction
+                // Mouse gravity attraction
                 if (mouse.x !== null && mouse.y !== null) {
                     const dx = mouse.x - this.x;
                     const dy = mouse.y - this.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist < mouse.radius && dist > 15) {
-                        const force = (1 - dist / mouse.radius) * 0.35;
-                        this.x += (dx / dist) * force * 1.4;
-                        this.y += (dy / dist) * force * 1.4;
+                        const force = (1 - dist / mouse.radius) * 0.45;
+                        this.x += (dx / dist) * force * 1.8;
+                        this.y += (dy / dist) * force * 1.8;
                     }
                 }
 
@@ -949,8 +1406,8 @@
                     const dx = this.x - r.x;
                     const dy = this.y - r.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (Math.abs(dist - r.radius) < 30) {
-                        const pushForce = (1 - r.radius / r.maxRadius) * 2.8;
+                    if (Math.abs(dist - r.radius) < 35) {
+                        const pushForce = (1 - r.radius / r.maxRadius) * 3.5;
                         this.x += (dx / (dist || 1)) * pushForce;
                         this.y += (dy / (dist || 1)) * pushForce;
                     }
@@ -964,14 +1421,14 @@
             draw() {
                 const colorRgb = this.colorType === 'cyan' 
                     ? '34, 211, 238' 
-                    : (this.colorType === 'purple' ? '192, 132, 252' : '129, 140, 248');
+                    : (this.colorType === 'purple' ? '192, 132, 252' : '52, 211, 153');
 
                 // Major Hub glowing aura
                 if (this.isHub) {
-                    const glowRadius = this.radius * (isRunningState ? 4.5 : 3.4);
+                    const glowRadius = this.radius * (isRunningState ? 6.0 : 4.5);
                     const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowRadius);
-                    grad.addColorStop(0, `rgba(${colorRgb}, ${this.alpha * 0.65})`);
-                    grad.addColorStop(0.5, `rgba(${colorRgb}, ${this.alpha * 0.18})`);
+                    grad.addColorStop(0, `rgba(${colorRgb}, ${this.alpha * 0.9})`);
+                    grad.addColorStop(0.5, `rgba(${colorRgb}, ${this.alpha * 0.35})`);
                     grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, glowRadius, 0, Math.PI * 2);
@@ -979,10 +1436,14 @@
                     ctx.fill();
                 }
 
+                ctx.save();
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = `rgb(${colorRgb})`;
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(${colorRgb}, ${this.alpha})`;
                 ctx.fill();
+                ctx.restore();
             }
         }
 
@@ -992,9 +1453,9 @@
                 this.p1 = p1;
                 this.p2 = p2;
                 this.progress = 0;
-                this.speed = Math.random() * 0.02 + (isRunningState ? 0.03 : 0.016);
-                this.color = Math.random() < 0.5 ? '34, 211, 238' : '168, 85, 247';
-                this.size = Math.random() * 1.6 + 1.2;
+                this.speed = Math.random() * 0.024 + (isRunningState ? 0.042 : 0.022);
+                this.color = Math.random() < 0.6 ? '34, 211, 238' : '168, 85, 247';
+                this.size = Math.random() * 2.0 + 1.6;
             }
             update() {
                 this.progress += this.speed;
@@ -1004,17 +1465,21 @@
                 const x = this.p1.x + (this.p2.x - this.p1.x) * this.progress;
                 const y = this.p1.y + (this.p2.y - this.p1.y) * this.progress;
                 
-                // Glow
+                ctx.save();
+                ctx.shadowBlur = 14;
+                ctx.shadowColor = '#00f0ff';
+                // Outer Glow
                 ctx.beginPath();
-                ctx.arc(x, y, this.size * 2.2, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(${this.color}, 0.3)`;
+                ctx.arc(x, y, this.size * 3.0, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(${this.color}, 0.65)`;
                 ctx.fill();
 
                 // Core
                 ctx.beginPath();
-                ctx.arc(x, y, this.size, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 255, 255, 0.95)`;
+                ctx.arc(x, y, this.size * 1.2, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
                 ctx.fill();
+                ctx.restore();
             }
         }
 
@@ -1026,26 +1491,24 @@
             reset() {
                 this.x = Math.random() * width;
                 this.y = Math.random() * (height * 0.5);
-                this.length = Math.random() * 130 + 80;
-                this.speed = Math.random() * 10 + 12;
-                this.angle = Math.PI / 4 + (Math.random() - 0.5) * 0.25; // ~45 deg
+                this.length = Math.random() * 150 + 100;
+                this.speed = Math.random() * 12 + 15;
+                this.angle = Math.PI / 4 + (Math.random() - 0.5) * 0.25;
                 this.vx = Math.cos(this.angle) * this.speed;
                 this.vy = Math.sin(this.angle) * this.speed;
-                this.alpha = Math.random() * 0.5 + 0.35;
+                this.alpha = Math.random() * 0.55 + 0.45;
                 this.active = false;
-                this.cooldown = Math.random() * 180 + 80;
+                this.cooldown = Math.random() * 140 + 50;
             }
             update() {
                 if (!this.active) {
                     this.cooldown--;
-                    if (this.cooldown <= 0) {
-                        this.active = true;
-                    }
+                    if (this.cooldown <= 0) this.active = true;
                     return;
                 }
                 this.x += this.vx;
                 this.y += this.vy;
-                this.alpha -= 0.009;
+                this.alpha -= 0.01;
                 if (this.x > width + 100 || this.y > height + 100 || this.alpha <= 0) {
                     this.reset();
                 }
@@ -1056,42 +1519,227 @@
                 const tailY = this.y - Math.sin(this.angle) * this.length;
                 const grad = ctx.createLinearGradient(tailX, tailY, this.x, this.y);
                 grad.addColorStop(0, 'rgba(99, 102, 241, 0)');
-                grad.addColorStop(0.7, `rgba(34, 211, 238, ${this.alpha * 0.5})`);
+                grad.addColorStop(0.65, `rgba(34, 211, 238, ${this.alpha * 0.7})`);
                 grad.addColorStop(1, `rgba(255, 255, 255, ${this.alpha})`);
                 ctx.beginPath();
                 ctx.moveTo(tailX, tailY);
                 ctx.lineTo(this.x, this.y);
                 ctx.strokeStyle = grad;
-                ctx.lineWidth = 1.4;
+                ctx.lineWidth = 2.0;
                 ctx.stroke();
             }
         }
 
-        let particles = [];
-        let dataPackets = [];
-        let shootingBeams = [];
+        // Holographic Astrolabe / Cyber Radar Ring in Upper-Right Background
+        class CyberRadarRing {
+            constructor(relX, relY, radius) {
+                this.relX = relX;
+                this.relY = relY;
+                this.radius = radius;
+                this.angle = 0;
+                this.sweepAngle = 0;
+            }
+            update(mult = 1) {
+                this.angle += 0.006 * mult;
+                this.sweepAngle += 0.024 * mult;
+            }
+            draw() {
+                const cx = width * this.relX;
+                const cy = height * this.relY;
+                ctx.save();
+                ctx.translate(cx, cy);
 
-        function initParticles() {
-            particles = [];
-            dataPackets = [];
-            shootingBeams = [new ShootingBeam(), new ShootingBeam()];
-            const count = Math.min(Math.floor((width * height) / 13000), 95);
-            for (let i = 0; i < count; i++) {
-                particles.push(new Particle());
+                // Outer Dashed Ring
+                ctx.save();
+                ctx.rotate(this.angle);
+                ctx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([8, 10]);
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Cardinal Ticks & Degree Labels
+                ctx.setLineDash([]);
+                ctx.fillStyle = 'rgba(34, 211, 238, 0.65)';
+                ctx.font = '9px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const labels = ['000°', '090°', '180°', '270°'];
+                for (let i = 0; i < 4; i++) {
+                    const a = (i * Math.PI) / 2;
+                    const x = Math.cos(a) * (this.radius + 12);
+                    const y = Math.sin(a) * (this.radius + 12);
+                    ctx.fillText(labels[i], x, y);
+                    ctx.beginPath();
+                    ctx.moveTo(Math.cos(a) * (this.radius - 6), Math.sin(a) * (this.radius - 6));
+                    ctx.lineTo(Math.cos(a) * (this.radius + 6), Math.sin(a) * (this.radius + 6));
+                    ctx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
+                    ctx.stroke();
+                }
+                ctx.restore();
+
+                // Inner Counter-Rotating Ring
+                ctx.save();
+                ctx.rotate(-this.angle * 1.5);
+                ctx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+                ctx.lineWidth = 1.2;
+                ctx.setLineDash([4, 6]);
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius * 0.7, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+
+                // Sweeping Radar Arm & Sector Glow
+                ctx.save();
+                ctx.rotate(this.sweepAngle);
+                const sweepGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, this.radius);
+                sweepGrad.addColorStop(0, 'rgba(6, 182, 212, 0.25)');
+                sweepGrad.addColorStop(1, 'rgba(6, 182, 212, 0)');
+                ctx.fillStyle = sweepGrad;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.arc(0, 0, this.radius, 0, Math.PI / 4);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.85)';
+                ctx.lineWidth = 1.8;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(this.radius, 0);
+                ctx.stroke();
+                ctx.restore();
+
+                ctx.restore();
             }
         }
-        initParticles();
 
-        let isRunningState = false;
+        // Circuit Board Bus Traces with Traveling Electron Pulses
+        class CircuitBus {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.startX = Math.random() * width;
+                this.startY = Math.random() < 0.5 ? Math.random() * 80 : height - Math.random() * 80;
+                this.midX = this.startX + (Math.random() - 0.5) * 200;
+                this.midY = this.startY + (Math.random() < 0.5 ? 60 : -60);
+                this.endX = this.midX + (Math.random() < 0.5 ? 150 : -150);
+                this.endY = this.midY;
+                this.pulse = 0;
+                this.speed = Math.random() * 0.015 + 0.008;
+                this.color = Math.random() < 0.5 ? '34, 211, 238' : '168, 85, 247';
+            }
+            update(mult = 1) {
+                this.pulse += this.speed * mult;
+                if (this.pulse > 1) this.pulse = 0;
+            }
+            draw() {
+                ctx.save();
+                ctx.strokeStyle = `rgba(${this.color}, 0.22)`;
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.moveTo(this.startX, this.startY);
+                ctx.lineTo(this.midX, this.startY);
+                ctx.lineTo(this.midX, this.midY);
+                ctx.lineTo(this.endX, this.endY);
+                ctx.stroke();
+
+                let px, py;
+                if (this.pulse < 0.33) {
+                    const t = this.pulse / 0.33;
+                    px = this.startX + (this.midX - this.startX) * t;
+                    py = this.startY;
+                } else if (this.pulse < 0.66) {
+                    const t = (this.pulse - 0.33) / 0.33;
+                    px = this.midX;
+                    py = this.startY + (this.midY - this.startY) * t;
+                } else {
+                    const t = (this.pulse - 0.66) / 0.34;
+                    px = this.midX + (this.endX - this.midX) * t;
+                    py = this.midY + (this.endY - this.midY) * t;
+                }
+
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = `rgb(${this.color})`;
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function initAllCanvasObjects() {
+            if (!width || !height) return;
+            particles = [];
+            dataPackets = [];
+            shootingBeams = [new ShootingBeam(), new ShootingBeam(), new ShootingBeam()];
+            floatingRunes = [];
+            for (let i = 0; i < 28; i++) floatingRunes.push(new FloatingRune());
+
+            const particleCount = Math.min(Math.floor((width * height) / 11000), 90);
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle());
+            }
+
+            hypercubeObj = new Hypercube3D(0.70, 0.48, Math.min(width, height) * 0.28);
+            icosahedronObj = new Icosahedron3D(0.20, 0.72, Math.min(width, height) * 0.22);
+            horizonWave = new CyberHorizonWave();
+            cyberRadarRing = new CyberRadarRing(0.76, 0.28, Math.min(width, height) * 0.16);
+            circuitBuses = [new CircuitBus(), new CircuitBus(), new CircuitBus(), new CircuitBus(), new CircuitBus(), new CircuitBus()];
+        }
+
+        // Initial setup and calibration
+        resizeCanvas();
+
         function animateCanvas() {
+            // Dynamic window resize check to keep dimensions synchronized
+            resizeCanvas();
+
             ctx.clearRect(0, 0, width, height);
 
-            const speed = isRunningState ? 1.8 : 0.95;
-            const maxDist = isRunningState ? 135 : 115;
-            const maxPackets = isRunningState ? 24 : 12;
-            const packetSpawnRate = isRunningState ? 0.006 : 0.0025;
+            const speed = isRunningState ? 2.0 : 1.0;
+            const maxDist = isRunningState ? 150 : 125;
+            const maxPackets = isRunningState ? 32 : 16;
+            const packetSpawnRate = isRunningState ? 0.01 : 0.004;
 
-            // Draw connection lines & spawn packets
+            // 1. Draw Flowing Perspective Cyber Horizon
+            if (horizonWave) {
+                horizonWave.update(speed);
+                horizonWave.draw();
+            }
+
+            // 1B. Draw Cyber Radar Ring in Upper Right
+            if (cyberRadarRing) {
+                cyberRadarRing.update(speed);
+                cyberRadarRing.draw();
+            }
+
+            // 1C. Draw Circuit Bus Traces with Traveling Electron Pulses
+            circuitBuses.forEach(b => {
+                b.update(speed);
+                b.draw();
+            });
+
+            // 2. Draw Floating Telemetry Runes
+            floatingRunes.forEach(r => {
+                r.update(speed);
+                r.draw();
+            });
+
+            // 3. Draw 3D Rotating Cyber Polyhedra
+            if (hypercubeObj) {
+                hypercubeObj.update(speed);
+                hypercubeObj.draw();
+            }
+            if (icosahedronObj) {
+                icosahedronObj.update(speed);
+                icosahedronObj.draw();
+            }
+
+            // 4. Draw Synapse Particle Network & Spawn Packets
             for (let i = 0; i < particles.length; i++) {
                 const p1 = particles[i];
                 for (let j = i + 1; j < particles.length; j++) {
@@ -1102,39 +1750,38 @@
 
                     if (dist < maxDist) {
                         const alphaRatio = 1 - dist / maxDist;
-                        const lineAlpha = alphaRatio * (isRunningState ? 0.32 : 0.16);
+                        const lineAlpha = alphaRatio * (isRunningState ? 0.75 : 0.48);
 
                         // Gradient line between nodes
                         const grad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
-                        grad.addColorStop(0, `rgba(99, 102, 241, ${lineAlpha})`);
+                        grad.addColorStop(0, `rgba(34, 211, 238, ${lineAlpha})`);
                         grad.addColorStop(1, `rgba(168, 85, 247, ${lineAlpha})`);
 
                         ctx.beginPath();
                         ctx.moveTo(p1.x, p1.y);
                         ctx.lineTo(p2.x, p2.y);
                         ctx.strokeStyle = grad;
-                        ctx.lineWidth = alphaRatio * 1.2;
+                        ctx.lineWidth = alphaRatio * 2.0;
                         ctx.stroke();
 
-                        // Occasionally spawn a data packet
                         if (dataPackets.length < maxPackets && Math.random() < packetSpawnRate) {
                             dataPackets.push(new DataPacket(p1, p2));
                         }
                     }
                 }
 
-                // Connect to mouse cursor
+                // Connect to mouse cursor with elastic laser beams
                 if (mouse.x !== null && mouse.y !== null) {
                     const mdx = p1.x - mouse.x;
                     const mdy = p1.y - mouse.y;
                     const mdist = Math.sqrt(mdx * mdx + mdy * mdy);
                     if (mdist < mouse.radius) {
-                        const mAlpha = (1 - mdist / mouse.radius) * 0.42;
+                        const mAlpha = (1 - mdist / mouse.radius) * 0.75;
                         ctx.beginPath();
                         ctx.moveTo(p1.x, p1.y);
                         ctx.lineTo(mouse.x, mouse.y);
                         ctx.strokeStyle = `rgba(34, 211, 238, ${mAlpha})`;
-                        ctx.lineWidth = 1.2;
+                        ctx.lineWidth = 1.8;
                         ctx.stroke();
                     }
                 }
@@ -1166,7 +1813,7 @@
             for (let i = ripples.length - 1; i >= 0; i--) {
                 const r = ripples[i];
                 r.radius += r.speed;
-                r.alpha -= 0.016;
+                r.alpha -= 0.015;
                 if (r.alpha <= 0 || r.radius >= r.maxRadius) {
                     ripples.splice(i, 1);
                     continue;
@@ -1174,19 +1821,216 @@
                 ctx.beginPath();
                 ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
                 ctx.strokeStyle = `rgba(34, 211, 238, ${r.alpha})`;
-                ctx.lineWidth = 1.8;
+                ctx.lineWidth = 2.2;
                 ctx.stroke();
 
                 ctx.beginPath();
-                ctx.arc(r.x, r.y, Math.max(0, r.radius - 12), 0, Math.PI * 2);
-                ctx.strokeStyle = `rgba(99, 102, 241, ${r.alpha * 0.4})`;
-                ctx.lineWidth = 1;
+                ctx.arc(r.x, r.y, Math.max(0, r.radius - 14), 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(168, 85, 247, ${r.alpha * 0.6})`;
+                ctx.lineWidth = 1.4;
                 ctx.stroke();
+            }
+
+            // 5. Draw Interactive Mouse Spotlight & Cyber Crosshair Reticle
+            if (mouse.x !== null && mouse.y !== null) {
+                ctx.save();
+                // Radiant flashlight aura
+                const flashGrad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, mouse.radius);
+                flashGrad.addColorStop(0, 'rgba(6, 182, 212, 0.16)');
+                flashGrad.addColorStop(0.5, 'rgba(99, 102, 241, 0.08)');
+                flashGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                ctx.beginPath();
+                ctx.arc(mouse.x, mouse.y, mouse.radius, 0, Math.PI * 2);
+                ctx.fillStyle = flashGrad;
+                ctx.fill();
+
+                // Rotating Cyber Reticle
+                mouse.reticleAngle += 0.018;
+                ctx.translate(mouse.x, mouse.y);
+                ctx.rotate(mouse.reticleAngle);
+
+                // Outer tick ring
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00f0ff';
+                ctx.beginPath();
+                ctx.arc(0, 0, 26, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.85)';
+                ctx.lineWidth = 1.6;
+                ctx.setLineDash([5, 6]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Inner crosshair ticks
+                ctx.shadowColor = '#c084fc';
+                ctx.strokeStyle = 'rgba(168, 85, 247, 0.9)';
+                ctx.lineWidth = 2.0;
+                for (let a = 0; a < 4; a++) {
+                    ctx.rotate(Math.PI / 2);
+                    ctx.beginPath();
+                    ctx.moveTo(12, 0);
+                    ctx.lineTo(26, 0);
+                    ctx.stroke();
+                }
+
+                // Center aiming pip
+                ctx.beginPath();
+                ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+
+                ctx.restore();
             }
 
             requestAnimationFrame(animateCanvas);
         }
         animateCanvas();
+
+        // ---------------------------------------------------------------------
+        // 1B. TERMINAL CYBERNETIC ENGINE: 3D GYROSCOPE CORE & MATRIX DATA RAIN
+        // ---------------------------------------------------------------------
+        const termCanvas = document.getElementById('terminalFxCanvas');
+        const termCtx = termCanvas ? termCanvas.getContext('2d') : null;
+        let termW = 0, termH = 0;
+
+        let matrixColumns = [];
+        const matrixChars = ['0x8F', 'λ::1', 'SYN', 'ACK', 'DOK', 'LNC', 'AST', 'RUN', '010', 'SYS', '0xFF', 'TCP', '001', 'HEX', 'PID', 'BM25', 'ERR', 'PTR'];
+
+        function initTerminalMatrix() {
+            if (!termW || !termH) return;
+            matrixColumns = [];
+            const colCount = Math.max(12, Math.floor(termW / 45));
+            for (let i = 0; i < colCount; i++) {
+                matrixColumns.push({
+                    x: i * (termW / colCount) + 12,
+                    y: Math.random() * termH,
+                    speed: Math.random() * 1.5 + 0.8,
+                    chars: Array.from({ length: 6 }, () => matrixChars[Math.floor(Math.random() * matrixChars.length)])
+                });
+            }
+        }
+
+        let gyroTime = 0;
+        function animateTerminalFx() {
+            if (!termCanvas || !termCtx) return;
+            const rect = termCanvas.parentElement ? termCanvas.parentElement.getBoundingClientRect() : null;
+            if (!rect) return;
+            const w = Math.floor(rect.width);
+            const h = Math.floor(rect.height);
+            if (termCanvas.width !== w || termCanvas.height !== h || termW !== w || termH !== h) {
+                termCanvas.width = termW = w;
+                termCanvas.height = termH = h;
+                initTerminalMatrix();
+            }
+
+            termCtx.clearRect(0, 0, termW, termH);
+            gyroTime += 0.018;
+
+            // 1. Matrix Code Stream (faint cascading background)
+            termCtx.save();
+            termCtx.font = '10px "JetBrains Mono", monospace';
+            matrixColumns.forEach(col => {
+                col.y += col.speed;
+                if (col.y > termH + 80) {
+                    col.y = -60;
+                    col.chars = Array.from({ length: 6 }, () => matrixChars[Math.floor(Math.random() * matrixChars.length)]);
+                }
+                col.chars.forEach((c, idx) => {
+                    const charY = col.y - idx * 16;
+                    if (charY > -20 && charY < termH + 20) {
+                        const alpha = idx === 0 ? 0.35 : Math.max(0, 0.22 - idx * 0.035);
+                        termCtx.fillStyle = idx === 0 ? `rgba(255, 255, 255, ${alpha})` : `rgba(6, 182, 212, ${alpha})`;
+                        termCtx.fillText(c, col.x, charY);
+                    }
+                });
+            });
+            termCtx.restore();
+
+            // 2. 3D Holographic Quantum Core / Gyroscope (positioned at termW * 0.72, termH * 0.48)
+            const cx = termW * 0.72;
+            const cy = termH * 0.48;
+
+            termCtx.save();
+            termCtx.translate(cx, cy);
+
+            // Ring 1 (Cyan Gimbal)
+            termCtx.save();
+            termCtx.rotate(gyroTime);
+            termCtx.scale(1, Math.cos(gyroTime * 1.2) * 0.6 + 0.4);
+            termCtx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+            termCtx.lineWidth = 1.8;
+            termCtx.shadowBlur = 12;
+            termCtx.shadowColor = '#06b6d4';
+            termCtx.beginPath();
+            termCtx.arc(0, 0, 75, 0, Math.PI * 2);
+            termCtx.stroke();
+            // Orbital nodes on Ring 1
+            for (let a = 0; a < 4; a++) {
+                const ang = (a * Math.PI) / 2 + gyroTime * 2;
+                termCtx.fillStyle = '#ffffff';
+                termCtx.beginPath();
+                termCtx.arc(Math.cos(ang) * 75, Math.sin(ang) * 75, 2.5, 0, Math.PI * 2);
+                termCtx.fill();
+            }
+            termCtx.restore();
+
+            // Ring 2 (Violet Gimbal)
+            termCtx.save();
+            termCtx.rotate(-gyroTime * 1.3);
+            termCtx.scale(Math.cos(gyroTime * 0.9) * 0.6 + 0.4, 1);
+            termCtx.strokeStyle = 'rgba(168, 85, 247, 0.45)';
+            termCtx.lineWidth = 1.6;
+            termCtx.shadowBlur = 10;
+            termCtx.shadowColor = '#a855f7';
+            termCtx.beginPath();
+            termCtx.arc(0, 0, 54, 0, Math.PI * 2);
+            termCtx.stroke();
+            termCtx.restore();
+
+            // Ring 3 (Emerald Gimbal)
+            termCtx.save();
+            termCtx.rotate(gyroTime * 0.7);
+            termCtx.setLineDash([4, 6]);
+            termCtx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+            termCtx.lineWidth = 1.4;
+            termCtx.beginPath();
+            termCtx.arc(0, 0, 36, 0, Math.PI * 2);
+            termCtx.stroke();
+            termCtx.setLineDash([]);
+            termCtx.restore();
+
+            // Core Singularity Orb (Breathing)
+            const coreRadius = 14 + Math.sin(gyroTime * 4) * 4;
+            const coreGrad = termCtx.createRadialGradient(0, 0, 0, 0, 0, coreRadius * 2.2);
+            coreGrad.addColorStop(0, 'rgba(255, 255, 255, 0.85)');
+            coreGrad.addColorStop(0.3, 'rgba(6, 182, 212, 0.55)');
+            coreGrad.addColorStop(0.7, 'rgba(168, 85, 247, 0.25)');
+            coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            termCtx.fillStyle = coreGrad;
+            termCtx.beginPath();
+            termCtx.arc(0, 0, coreRadius * 2.2, 0, Math.PI * 2);
+            termCtx.fill();
+
+            termCtx.restore();
+
+            // 3. Bottom Oscilloscope Sine Wave
+            termCtx.save();
+            termCtx.strokeStyle = 'rgba(6, 182, 212, 0.28)';
+            termCtx.lineWidth = 1.5;
+            termCtx.shadowBlur = 6;
+            termCtx.shadowColor = '#06b6d4';
+            termCtx.beginPath();
+            const oscY = termH - 18;
+            for (let x = 0; x <= termW; x += 6) {
+                const y = oscY + Math.sin(x * 0.035 + gyroTime * 3) * 6 * Math.sin(x * 0.008);
+                if (x === 0) termCtx.moveTo(x, y);
+                else termCtx.lineTo(x, y);
+            }
+            termCtx.stroke();
+            termCtx.restore();
+
+            requestAnimationFrame(animateTerminalFx);
+        }
+        animateTerminalFx();
 
 
         // ---------------------------------------------------------------------
